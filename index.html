@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub PRO MAX</title>
+<title>Event Hub PRO MAX v2</title>
 
 <style>
 body{
@@ -13,7 +13,11 @@ body{
   color:white;
 }
 
-.container{max-width:700px;margin:auto;padding:16px;}
+.container{
+  max-width:720px;
+  margin:auto;
+  padding:16px;
+}
 
 .card{
   background:rgba(255,255,255,0.06);
@@ -31,7 +35,11 @@ input,button{
   font-size:16px;
 }
 
-button{background:#6c5ce7;color:white;font-weight:bold;}
+button{
+  background:#6c5ce7;
+  color:white;
+  font-weight:bold;
+}
 
 .item{
   padding:10px;
@@ -46,135 +54,129 @@ button{background:#6c5ce7;color:white;font-weight:bold;}
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO MAX</h1>
+<h1>⚡ Event Hub PRO MAX v2</h1>
 
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
+<!-- EVENTS -->
 <div class="card">
-<h2>➕ Event</h2>
+<h2>📅 Events</h2>
 
-<input id="name" placeholder="Event name">
-<input id="date" type="date">
-<input id="time" type="time">
+<input id="eventName" placeholder="Event name">
+<input id="eventDate" type="date">
+<input id="eventTime" type="time">
 <button onclick="addEvent()">Add event</button>
 
 <div id="events"></div>
 </div>
 
+<!-- TODO -->
 <div class="card">
 <h2>📝 Tasks</h2>
 
-<input id="todo" placeholder="Task">
-<button onclick="addTodo()">Add</button>
+<input id="todoInput" placeholder="Task">
+<button onclick="addTodo()">Add task</button>
 
 <div id="todos"></div>
+</div>
+
+<!-- WEATHER -->
+<div class="card">
+<h2>🌦 Weather</h2>
+<p id="weather">Loading...</p>
 </div>
 
 </div>
 
 <script>
 
-/* =======================
-   DATA
-======================= */
+/* =========================
+   STORAGE
+========================= */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 
-/* =======================
-   SW (PWA)
-======================= */
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js');
-}
-
-/* =======================
-   NOTIFICATIONS
-======================= */
+/* =========================
+   NOTIFICATIONS (REAL FIX)
+========================= */
 async function enableNotifications(){
+  if(!("Notification" in window)){
+    alert("Brak wsparcia notifications");
+    return;
+  }
+
   const perm = await Notification.requestPermission();
 
+  alert("Permission: " + perm);
+
   if(perm === "granted"){
-    navigator.serviceWorker.ready.then(reg=>{
-      reg.showNotification("PRO MAX",{
-        body:"Notifications enabled"
-      });
+    new Notification("Event Hub PRO MAX",{
+      body:"Notifications enabled"
     });
   }
 }
 
 function notify(title, body){
-  navigator.serviceWorker.ready.then(reg=>{
-    reg.showNotification(title,{body});
-  });
+  if(Notification.permission === "granted"){
+    new Notification(title,{body});
+  }
 }
 
-/* =======================
+/* =========================
    EVENTS
-======================= */
+========================= */
 function addEvent(){
-  const name = name = document.getElementById("name").value;
-  const date = document.getElementById("date").value;
-  const time = document.getElementById("time").value;
+  const name = document.getElementById("eventName").value;
+  const date = document.getElementById("eventDate").value;
+  const time = document.getElementById("eventTime").value;
 
   if(!name || !date || !time) return;
-
-  const timeMs = new Date(`${date}T${time}`).getTime();
 
   events.push({
     id:Date.now(),
     name,
-    time:timeMs,
-    notified15:false,
-    notified5:false
+    time:new Date(`${date}T${time}`).getTime(),
+    notified:false
   });
 
-  save();
+  saveEvents();
   render();
 }
 
-function save(){
+function saveEvents(){
   localStorage.setItem("events",JSON.stringify(events));
 }
 
-/* =======================
-   LOOP (15m + 5m + NOW)
-======================= */
+/* =========================
+   LOOP (FIXED RELIABLE)
+========================= */
 setInterval(()=>{
   const now = Date.now();
 
   events.forEach(ev=>{
     const diff = ev.time - now;
 
-    if(diff <= 15*60*1000 && !ev.notified15){
-      notify("⏰ 15 min", ev.name);
-      ev.notified15 = true;
-      save();
-    }
-
-    if(diff <= 5*60*1000 && !ev.notified5){
-      notify("🔥 5 min", ev.name);
-      ev.notified5 = true;
-      save();
-    }
-
-    if(diff <= 0){
-      notify("🚨 NOW", ev.name);
+    // 15 min alert (STABLE)
+    if(!ev.notified && diff <= 15*60*1000 && diff > 0){
+      notify("⏰ 15 min alert", ev.name);
+      ev.notified = true;
+      saveEvents();
     }
   });
 
-},5000);
+},3000);
 
-/* =======================
-   RENDER
-======================= */
+/* =========================
+   RENDER EVENTS + TODOS
+========================= */
 function render(){
-  const el = document.getElementById("events");
-  el.innerHTML="";
+  const e = document.getElementById("events");
+  e.innerHTML="";
 
   events.sort((a,b)=>a.time-b.time);
 
   events.forEach(ev=>{
-    el.innerHTML += `
+    e.innerHTML += `
       <div class="item">
         <b>${ev.name}</b><br>
         ${new Date(ev.time).toLocaleString()}
@@ -197,15 +199,15 @@ function render(){
   });
 }
 
-/* =======================
-   TODO
-======================= */
+/* =========================
+   TODO FIXED
+========================= */
 function addTodo(){
-  const v = document.getElementById("todo").value;
+  const v = document.getElementById("todoInput").value;
   if(!v) return;
 
   todos.push({text:v,done:false});
-  document.getElementById("todo").value="";
+  document.getElementById("todoInput").value="";
   saveTodos();
   render();
 }
@@ -226,8 +228,43 @@ function saveTodos(){
   localStorage.setItem("todos",JSON.stringify(todos));
 }
 
-/* INIT */
-render();
+/* =========================
+   WEATHER (FIXED + FAST)
+========================= */
+function loadWeather(lat,lon){
+  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
+  .then(r=>r.json())
+  .then(d=>{
+    document.getElementById("weather").innerText =
+      "🌡 " + d.current_weather.temperature + "°C";
+  })
+  .catch(()=>{
+    document.getElementById("weather").innerText="Weather error";
+  });
+}
+
+function initWeather(){
+  const fallback = {lat:48.2082,lon:16.3738};
+
+  if(!navigator.geolocation){
+    loadWeather(fallback.lat,fallback.lon);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    p=>loadWeather(p.coords.latitude,p.coords.longitude),
+    ()=>loadWeather(fallback.lat,fallback.lon),
+    {timeout:3000}
+  );
+}
+
+/* =========================
+   INIT
+========================= */
+window.onload=()=>{
+  render();
+  initWeather();
+};
 
 </script>
 
