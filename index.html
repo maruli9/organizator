@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub PRO MAX v2</title>
+<title>Event Hub PRO MAX v3</title>
 
 <style>
 body{
@@ -13,11 +13,7 @@ body{
   color:white;
 }
 
-.container{
-  max-width:720px;
-  margin:auto;
-  padding:16px;
-}
+.container{max-width:720px;margin:auto;padding:16px;}
 
 .card{
   background:rgba(255,255,255,0.06);
@@ -26,7 +22,7 @@ body{
   border-radius:16px;
 }
 
-input,button{
+input,select,button{
   width:100%;
   padding:12px;
   margin-top:8px;
@@ -35,11 +31,7 @@ input,button{
   font-size:16px;
 }
 
-button{
-  background:#6c5ce7;
-  color:white;
-  font-weight:bold;
-}
+button{background:#6c5ce7;color:white;font-weight:bold;}
 
 .item{
   padding:10px;
@@ -54,36 +46,28 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO MAX v2</h1>
+<h1>⚡ Event Hub PRO MAX v3</h1>
 
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
-<!-- EVENTS -->
+<!-- EVENT FORM -->
 <div class="card">
-<h2>📅 Events</h2>
+<h2>📅 Event</h2>
 
-<input id="eventName" placeholder="Event name">
-<input id="eventDate" type="date">
-<input id="eventTime" type="time">
-<button onclick="addEvent()">Add event</button>
+<input id="name" placeholder="Event name">
+<input id="date" type="date">
+<input id="time" type="time">
+
+<select id="alarm">
+  <option value="5">5 min before</option>
+  <option value="10">10 min before</option>
+  <option value="15" selected>15 min before</option>
+  <option value="30">30 min before</option>
+</select>
+
+<button onclick="addEvent()">Add / Save event</button>
 
 <div id="events"></div>
-</div>
-
-<!-- TODO -->
-<div class="card">
-<h2>📝 Tasks</h2>
-
-<input id="todoInput" placeholder="Task">
-<button onclick="addTodo()">Add task</button>
-
-<div id="todos"></div>
-</div>
-
-<!-- WEATHER -->
-<div class="card">
-<h2>🌦 Weather</h2>
-<p id="weather">Loading...</p>
 </div>
 
 </div>
@@ -91,180 +75,148 @@ button{
 <script>
 
 /* =========================
-   STORAGE
+   DATA
 ========================= */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
-let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 
 /* =========================
-   NOTIFICATIONS (REAL FIX)
+   NOTIFICATIONS
 ========================= */
 async function enableNotifications(){
-  if(!("Notification" in window)){
-    alert("Brak wsparcia notifications");
-    return;
-  }
+  const p = await Notification.requestPermission();
+  alert("Permission: " + p);
 
-  const perm = await Notification.requestPermission();
-
-  alert("Permission: " + perm);
-
-  if(perm === "granted"){
-    new Notification("Event Hub PRO MAX",{
+  if(p==="granted"){
+    new Notification("PRO MAX v3",{
       body:"Notifications enabled"
     });
   }
 }
 
 function notify(title, body){
-  if(Notification.permission === "granted"){
+  if(Notification.permission==="granted"){
     new Notification(title,{body});
   }
 }
 
 /* =========================
-   EVENTS
+   ADD / EDIT EVENT
 ========================= */
-function addEvent(){
-  const name = document.getElementById("eventName").value;
-  const date = document.getElementById("eventDate").value;
-  const time = document.getElementById("eventTime").value;
+function addEvent(editId=null){
+
+  const name = document.getElementById("name").value;
+  const date = document.getElementById("date").value;
+  const time = document.getElementById("time").value;
+  const alarm = parseInt(document.getElementById("alarm").value);
 
   if(!name || !date || !time) return;
 
-  events.push({
-    id:Date.now(),
-    name,
-    time:new Date(`${date}T${time}`).getTime(),
-    notified:false
-  });
+  const timeMs = new Date(`${date}T${time}`).getTime();
 
-  saveEvents();
+  if(editId){
+    const ev = events.find(e=>e.id===editId);
+    ev.name = name;
+    ev.time = timeMs;
+    ev.alarm = alarm;
+    ev.notified = false;
+  } else {
+    events.push({
+      id:Date.now(),
+      name,
+      time:timeMs,
+      alarm,
+      notified:false
+    });
+  }
+
+  save();
   render();
 }
 
-function saveEvents(){
+/* =========================
+   DELETE
+========================= */
+function del(id){
+  events = events.filter(e=>e.id!==id);
+  save();
+  render();
+}
+
+/* =========================
+   EDIT (FIX #1)
+========================= */
+function edit(id){
+  const ev = events.find(e=>e.id===id);
+
+  document.getElementById("name").value = ev.name;
+  document.getElementById("date").value = new Date(ev.time).toISOString().split("T")[0];
+  document.getElementById("time").value = new Date(ev.time).toTimeString().slice(0,5);
+  document.getElementById("alarm").value = ev.alarm;
+
+  // override button
+  document.querySelector("button[onclick='addEvent()']")
+    .onclick = ()=>addEvent(id);
+}
+
+/* =========================
+   SAVE
+========================= */
+function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
 
 /* =========================
-   LOOP (FIXED RELIABLE)
+   LOOP (ALARM + AUTO DELETE)
 ========================= */
 setInterval(()=>{
   const now = Date.now();
 
   events.forEach(ev=>{
+
     const diff = ev.time - now;
 
-    // 15 min alert (STABLE)
-    if(!ev.notified && diff <= 15*60*1000 && diff > 0){
-      notify("⏰ 15 min alert", ev.name);
+    // 🔔 CUSTOM ALARM (FIX #2)
+    if(!ev.notified && diff <= ev.alarm*60*1000 && diff > 0){
+      notify("⏰ Event soon", ev.name);
       ev.notified = true;
-      saveEvents();
+      save();
     }
+
   });
+
+  // 🧹 AUTO DELETE PAST EVENTS (FIX #3)
+  events = events.filter(e => e.time > now - 60*1000);
+  save();
+
+  render();
 
 },3000);
 
 /* =========================
-   RENDER EVENTS + TODOS
+   RENDER
 ========================= */
 function render(){
-  const e = document.getElementById("events");
-  e.innerHTML="";
+  const el = document.getElementById("events");
+  el.innerHTML="";
 
   events.sort((a,b)=>a.time-b.time);
 
   events.forEach(ev=>{
-    e.innerHTML += `
+    el.innerHTML += `
       <div class="item">
         <b>${ev.name}</b><br>
-        ${new Date(ev.time).toLocaleString()}
-      </div>
-    `;
-  });
+        ${new Date(ev.time).toLocaleString()}<br>
+        ⏰ alarm: ${ev.alarm} min<br><br>
 
-  const t = document.getElementById("todos");
-  t.innerHTML="";
-
-  todos.forEach((x,i)=>{
-    t.innerHTML += `
-      <div class="item">
-        <input type="checkbox" ${x.done?"checked":""}
-        onchange="toggleTodo(${i})">
-        ${x.text}
-        <button onclick="delTodo(${i})">X</button>
+        <button onclick="edit(${ev.id})">Edit</button>
+        <button onclick="del(${ev.id})">Delete</button>
       </div>
     `;
   });
 }
 
-/* =========================
-   TODO FIXED
-========================= */
-function addTodo(){
-  const v = document.getElementById("todoInput").value;
-  if(!v) return;
-
-  todos.push({text:v,done:false});
-  document.getElementById("todoInput").value="";
-  saveTodos();
-  render();
-}
-
-function toggleTodo(i){
-  todos[i].done=!todos[i].done;
-  saveTodos();
-  render();
-}
-
-function delTodo(i){
-  todos.splice(i,1);
-  saveTodos();
-  render();
-}
-
-function saveTodos(){
-  localStorage.setItem("todos",JSON.stringify(todos));
-}
-
-/* =========================
-   WEATHER (FIXED + FAST)
-========================= */
-function loadWeather(lat,lon){
-  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
-  .then(r=>r.json())
-  .then(d=>{
-    document.getElementById("weather").innerText =
-      "🌡 " + d.current_weather.temperature + "°C";
-  })
-  .catch(()=>{
-    document.getElementById("weather").innerText="Weather error";
-  });
-}
-
-function initWeather(){
-  const fallback = {lat:48.2082,lon:16.3738};
-
-  if(!navigator.geolocation){
-    loadWeather(fallback.lat,fallback.lon);
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    p=>loadWeather(p.coords.latitude,p.coords.longitude),
-    ()=>loadWeather(fallback.lat,fallback.lon),
-    {timeout:3000}
-  );
-}
-
-/* =========================
-   INIT
-========================= */
-window.onload=()=>{
-  render();
-  initWeather();
-};
+/* INIT */
+render();
 
 </script>
 
