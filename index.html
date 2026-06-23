@@ -143,6 +143,7 @@ let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 let isAlarmActive = false;
+let appReady = false;
 
 /* WEATHER */
 function weather(){
@@ -168,6 +169,10 @@ let audioUnlocked = false;
 window.addEventListener("load", ()=>{
   alarmSound.pause();
   alarmSound.currentTime = 0;
+
+  setTimeout(()=>{
+    appReady = true;
+  }, 1000);
 });
 
 document.addEventListener("click", ()=>{
@@ -250,6 +255,8 @@ function addEvent(){
 
 /* LOOP */
 setInterval(()=>{
+  if(!appReady) return;
+
   const now = Date.now();
 
   let changed=false;
