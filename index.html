@@ -41,7 +41,6 @@ button{
   font-weight:600;
 }
 
-/* EVENT ROW */
 .event-row{
   display:grid;
   grid-template-columns: 1.5fr 1fr 0.8fr 0.6fr 0.6fr;
@@ -54,7 +53,6 @@ button{
   font-size:13px;
 }
 
-/* TODO */
 .todo-row{
   display:grid;
   grid-template-columns: 40px 1fr 50px;
@@ -66,10 +64,32 @@ button{
   border-radius:10px;
 }
 
-/* WEATHER */
 .weather-box{
   font-size:14px;
   line-height:1.6;
+}
+
+/* 🔴 IOS SAFE ALARM UI */
+#alarmBox{
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(255,0,0,0.92);
+  z-index:9999;
+  text-align:center;
+  padding-top:35%;
+  font-size:28px;
+}
+
+#alarmBox button{
+  margin-top:20px;
+  padding:14px;
+  font-size:18px;
+  background:white;
+  color:black;
 }
 </style>
 </head>
@@ -79,8 +99,6 @@ button{
 <div class="container">
 
 <h1>⚡ Event Hub STABLE FINAL</h1>
-
-<button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
 <!-- WEATHER -->
 <div class="card">
@@ -120,6 +138,13 @@ button{
 
 </div>
 
+<!-- 🔴 IOS SAFE ALARM OVERLAY -->
+<div id="alarmBox">
+  ⏰ EVENT ALARM<br><br>
+  <div id="alarmText"></div>
+  <button onclick="stopAlarm()">STOP</button>
+</div>
+
 <script>
 
 /* =========================
@@ -130,10 +155,9 @@ let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 
 /* =========================
-   WEATHER (2 CITIES FIXED)
+   WEATHER
 ========================= */
 function weather(){
-
   const el = document.getElementById("weather");
 
   const vienna = fetch(
@@ -146,29 +170,35 @@ function weather(){
 
   Promise.all([vienna,dzw])
     .then(([v,d])=>{
-
-      const vTemp = v?.current_weather?.temperature;
-      const dTemp = d?.current_weather?.temperature;
-
       el.innerHTML = `
-        🌍 Vienna (Essling): ${vTemp ?? "?"}°C<br>
-        🇵🇱 Dziwnów: ${dTemp ?? "?"}°C
+        🌍 Vienna (Essling): ${v?.current_weather?.temperature ?? "?"}°C<br>
+        🇵🇱 Dziwnów: ${d?.current_weather?.temperature ?? "?"}°C
       `;
     })
-    .catch(()=>{
-      el.innerText = "Weather error";
-    });
+    .catch(()=> el.innerText="Weather error");
 }
 
 /* =========================
-   NOTIFICATIONS
+   IOS SAFE ALARM SYSTEM
 ========================= */
-async function enableNotifications(){
-  const p = await Notification.requestPermission();
+const alarmSound = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+alarmSound.loop = true;
 
-  alert("Permission: " + p);
+function triggerAlarm(ev){
+  document.getElementById("alarmText").innerText = ev.name;
+  document.getElementById("alarmBox").style.display = "block";
 
-  console.log("Notification permission:", p);
+  alarmSound.play().catch(()=>{});
+
+  if(navigator.vibrate){
+    navigator.vibrate([300,200,300,200,300]);
+  }
+}
+
+function stopAlarm(){
+  document.getElementById("alarmBox").style.display = "none";
+  alarmSound.pause();
+  alarmSound.currentTime = 0;
 }
 
 /* =========================
@@ -259,11 +289,7 @@ setInterval(()=>{
     const diff = ev.time - now;
 
     if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
-      if(Notification.permission==="granted"){
-        new Notification("⏰ Event",{
-          body: ev.name
-        });
-      }
+      triggerAlarm(ev);
       ev.notified = true;
       save();
     }
