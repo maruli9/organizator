@@ -163,6 +163,8 @@ function weather(){
 
 /* AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
+
+
 alarmSound.loop = true;
 let audioUnlocked = false;
 
@@ -250,32 +252,25 @@ function addEvent(){
 }
 
 /* LOOP */
-setInterval(()=>{
-  const now = Date.now();
+setTimeout(()=>{
 
-  let changed=false;
+  setInterval(()=>{
+    const now = Date.now();
 
-  events.forEach(ev=>{
-    const diff = ev.time-now;
+    events.forEach(ev=>{
+      const diff = ev.time - now;
 
-    if(!ev.notified && diff <= ev.alarm*60000 && diff>0){
-      triggerAlarm(ev);
-      ev.notified=true;
-      changed=true;
-    }
-  });
+      if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
+        triggerAlarm(ev);
+        ev.notified = true;
+      }
+    });
 
-  const before = events.length;
-  events = events.filter(e=>e.time > now);
+    events = events.filter(e=>e.time > now);
 
-  if(before!==events.length) changed=true;
+  },2000);
 
-  if(changed){
-    save();
-    render();
-  }
-
-},2000);
+},1500);
 
 /* COUNTDOWN LOOP */
 setInterval(()=>{
