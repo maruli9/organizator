@@ -2,33 +2,51 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Event Hub</title>
 
 <style>
+
+/* 🔒 GLOBAL FIX (STOP "PLYWANIU") */
 html, body {
   margin:0;
   padding:0;
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+  font-family:system-ui;
   background:#0b0f1a;
   color:white;
-  font-family:system-ui;
-  min-height:100vh;
+  -webkit-text-size-adjust:100%;
 }
 
+body{
+  min-height:100vh;
+  min-height:100dvh;
+}
+
+/* CONTAINER */
 .container{
+  width:100%;
   max-width:720px;
   margin:auto;
   padding:16px;
   box-sizing:border-box;
+  overflow-x:hidden;
 }
 
+/* CARDS */
 .card{
   background:rgba(255,255,255,0.06);
   padding:14px;
   margin:12px 0;
   border-radius:14px;
+  width:100%;
+  box-sizing:border-box;
+  overflow:hidden;
 }
 
+/* INPUTS */
 input,select,button{
   width:100%;
   padding:10px;
@@ -36,6 +54,7 @@ input,select,button{
   border-radius:10px;
   border:none;
   font-size:15px;
+  box-sizing:border-box;
 }
 
 button{
@@ -50,18 +69,53 @@ button{
   margin-top:8px;
   background:rgba(255,255,255,0.08);
   border-radius:10px;
+  width:100%;
+  box-sizing:border-box;
+  word-break:break-word;
 }
 
-.timer-title{
-  font-size:18px;
+/* ---------------- ALARM RED SCREEN ---------------- */
+#alarmBox{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(255,0,0,0.95);
+  z-index:9999;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+
+  text-align:center;
+  padding:20px;
+
+  animation:pulse 0.8s infinite;
+}
+
+#alarmText{
+  font-size:28px;
   font-weight:700;
-  margin-bottom:8px;
+  margin-bottom:20px;
 }
 
-.timer-small{
-  font-size:13px;
-  opacity:0.8;
+#alarmBox button{
+  padding:18px 30px;
+  font-size:20px;
+  border-radius:12px;
+  border:none;
+  background:white;
+  color:black;
+  font-weight:700;
+  width:auto;
 }
+
+@keyframes pulse{
+  0%{transform:scale(1);}
+  50%{transform:scale(1.02);}
+  100%{transform:scale(1);}
+}
+
 </style>
 </head>
 
@@ -69,9 +123,13 @@ button{
 
 <div class="container">
 
-<!-- 🔥 SMART TIMER PRO -->
+<h1>Event Hub</h1>
+
+<button onclick="enableNotifications()">🔔 Enable Notifications</button>
+
+<!-- SMART TIMER -->
 <div class="card">
-  <div class="timer-title">⏳ Next Events</div>
+  <h2>⏳ Next Events</h2>
   <div id="nextEvents"></div>
 </div>
 
@@ -112,9 +170,8 @@ button{
 
 </div>
 
-<!-- ALARM -->
+<!-- 🔴 FULLSCREEN ALARM (RESTORED) -->
 <div id="alarmBox">
-  ⏰ EVENT ALARM<br><br>
   <div id="alarmText"></div>
   <button onclick="stopAlarm()">STOP</button>
 </div>
@@ -147,7 +204,7 @@ async function enableNotifications(){
   await Notification.requestPermission();
 }
 
-/* 🔊 AUDIO */
+/* 🔊 AUDIO (alarm.mp3) */
 const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
 
@@ -168,10 +225,12 @@ function startAlarmSound(){
   alarmSound.play().catch(()=>{});
 }
 
-/* ALARM */
+/* 🔴 ALARM */
 function triggerAlarm(ev){
 
-  document.getElementById("alarmBox").style.display = "block";
+  const box = document.getElementById("alarmBox");
+  box.style.display = "flex";
+
   document.getElementById("alarmText").innerText = ev.name;
 
   startAlarmSound();
@@ -188,6 +247,7 @@ function triggerAlarm(ev){
 function stopAlarm(){
   document.getElementById("alarmBox").style.display = "none";
   alarmSound.pause();
+  alarmSound.currentTime = 0;
 }
 
 /* EVENTS */
@@ -221,7 +281,7 @@ function addEvent(){
   render();
 }
 
-/* SMART TIMER PRO */
+/* SMART TIMER */
 function updateSmartTimer(){
 
   const now = Date.now();
@@ -251,9 +311,7 @@ function updateSmartTimer(){
     el.innerHTML += `
       <div class="timer-item">
         <b>${ev.name}</b><br>
-        <div class="timer-small">
-          ⏱ ${h}h ${m}m ${s}s left
-        </div>
+        ⏱ ${h}h ${m}m ${s}s left
       </div>
     `;
   });
@@ -298,6 +356,9 @@ function render(){
       </div>
     `;
   });
+
+  const t=document.getElementById("todos");
+  t.innerHTML="";
 }
 
 /* SAVE */
