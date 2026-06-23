@@ -13,6 +13,7 @@ html, body {
   color:white;
   font-family:system-ui;
   min-height:100vh;
+  overflow-x:hidden;
 }
 
 .container{
@@ -62,6 +63,53 @@ button{
   font-size:13px;
   opacity:0.8;
 }
+
+/* 🔴 FULLSCREEN ALARM */
+#alarmBox{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(255,0,0,0.95);
+  z-index:9999;
+
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+
+  text-align:center;
+  padding:20px;
+
+  animation:pulse 0.8s infinite;
+}
+
+#alarmText{
+  font-size:30px;
+  font-weight:800;
+  margin-bottom:10px;
+}
+
+#alarmDesc{
+  font-size:16px;
+  opacity:0.9;
+  margin-bottom:25px;
+}
+
+#alarmBox button{
+  padding:18px 30px;
+  font-size:20px;
+  border-radius:12px;
+  border:none;
+  background:white;
+  color:black;
+  font-weight:800;
+  width:auto;
+}
+
+@keyframes pulse{
+  0%{transform:scale(1);}
+  50%{transform:scale(1.02);}
+  100%{transform:scale(1);}
+}
 </style>
 </head>
 
@@ -69,7 +117,7 @@ button{
 
 <div class="container">
 
-<!-- 🔥 SMART TIMER PRO -->
+<!-- SMART TIMER -->
 <div class="card">
   <div class="timer-title">⏳ Next Events</div>
   <div id="nextEvents"></div>
@@ -112,10 +160,10 @@ button{
 
 </div>
 
-<!-- ALARM -->
+<!-- 🔴 FULLSCREEN ALARM -->
 <div id="alarmBox">
-  ⏰ EVENT ALARM<br><br>
   <div id="alarmText"></div>
+  <div id="alarmDesc"></div>
   <button onclick="stopAlarm()">STOP</button>
 </div>
 
@@ -142,25 +190,20 @@ function weather(){
   .catch(()=> el.innerText="Weather error");
 }
 
-/* NOTIFICATIONS */
-async function enableNotifications(){
-  await Notification.requestPermission();
-}
-
 /* 🔊 AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
 
 let audioUnlocked = false;
 
-function unlockAudio(){
+document.addEventListener("click", ()=>{
   if(audioUnlocked) return;
   alarmSound.play().then(()=>{
     alarmSound.pause();
+    alarmSound.currentTime = 0;
     audioUnlocked = true;
   }).catch(()=>{});
-}
-document.addEventListener("click", unlockAudio, { once:true });
+}, { once:true });
 
 function startAlarmSound(){
   if(!audioUnlocked) return;
@@ -168,17 +211,18 @@ function startAlarmSound(){
   alarmSound.play().catch(()=>{});
 }
 
-/* ALARM */
+/* 🔴 ALARM */
 function triggerAlarm(ev){
 
-  document.getElementById("alarmBox").style.display = "block";
+  const box = document.getElementById("alarmBox");
+
   document.getElementById("alarmText").innerText = ev.name;
+  document.getElementById("alarmDesc").innerText =
+    "Nadchodzące wydarzenie – sprawdź teraz";
+
+  box.style.display = "flex";
 
   startAlarmSound();
-
-  if(Notification.permission === "granted"){
-    new Notification("⏰ Event", { body: ev.name });
-  }
 
   if(navigator.vibrate){
     navigator.vibrate([300,150,300,150,600]);
@@ -188,6 +232,7 @@ function triggerAlarm(ev){
 function stopAlarm(){
   document.getElementById("alarmBox").style.display = "none";
   alarmSound.pause();
+  alarmSound.currentTime = 0;
 }
 
 /* EVENTS */
@@ -221,15 +266,14 @@ function addEvent(){
   render();
 }
 
-/* SMART TIMER PRO */
+/* SMART TIMER */
 function updateSmartTimer(){
 
   const now = Date.now();
 
   const next = events
     .filter(e=>e.time>now)
-    .sort((a,b)=>a.time-b.time)
-    .slice(0,3);
+    .sort((a,b)=>a.time-b.time);
 
   const el = document.getElementById("nextEvents");
 
@@ -241,9 +285,7 @@ function updateSmartTimer(){
   el.innerHTML = "";
 
   next.forEach(ev=>{
-
     const diff = ev.time - now;
-
     const h = Math.floor(diff/(1000*60*60));
     const m = Math.floor((diff/(1000*60))%60);
     const s = Math.floor((diff/1000)%60);
@@ -298,6 +340,26 @@ function render(){
       </div>
     `;
   });
+
+  const t = document.getElementById("todos");
+  t.innerHTML="";
+
+  todos.forEach((x,i)=>{
+    t.innerHTML += `
+      <div class="timer-item">
+        ${x.text}
+      </div>
+    `;
+  });
+}
+
+/* TODO */
+function addTodo(){
+  const v=document.getElementById("todoInput").value;
+  if(!v)return;
+  todos.push({text:v});
+  localStorage.setItem("todos",JSON.stringify(todos));
+  render();
 }
 
 /* SAVE */
@@ -305,6 +367,7 @@ function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
 
+/* INIT */
 render();
 weather();
 updateSmartTimer();
