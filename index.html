@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Event Countdown + Planner</title>
 
 <link rel="manifest" href="manifest.json">
@@ -21,6 +21,8 @@ body {
   color:white;
   margin:0;
   padding:20px;
+  overflow: hidden;
+touch-action: none;
 }
 
 .container { max-width:900px; margin:auto; }
@@ -129,6 +131,7 @@ setInterval(updateCountdown, 1000);
 
 
 // ---------------- TODO ----------------
+// ---------------- TODO ----------------
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 
 function renderTodos(){
@@ -138,10 +141,17 @@ function renderTodos(){
   todos.forEach((t,i)=>{
     const div = document.createElement("div");
     div.className="todo-item";
+
     div.innerHTML = `
-      <span>${t}</span>
+      <label>
+        <input type="checkbox" ${t.done ? "checked" : ""} onchange="toggleTodo(${i})">
+        <span style="text-decoration:${t.done ? "line-through" : "none"}">
+          ${t.text}
+        </span>
+      </label>
       <button onclick="removeTodo(${i})">X</button>
     `;
+
     list.appendChild(div);
   });
 
@@ -153,10 +163,15 @@ function addTodo(){
   const val = input.value;
 
   if(val){
-    todos.push(val);
+    todos.push({ text: val, done: false });
     input.value = "";
     renderTodos();
   }
+}
+
+function toggleTodo(i){
+  todos[i].done = !todos[i].done;
+  renderTodos();
 }
 
 function removeTodo(i){
@@ -164,9 +179,8 @@ function removeTodo(i){
   renderTodos();
 }
 
+// start
 renderTodos();
-
-
 // ---------------- WEATHER ----------------
 const mockTemp = Array.from({length:10},()=>Math.floor(Math.random()*10+10));
 
