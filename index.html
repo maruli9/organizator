@@ -3,29 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub STABLE MOBILE FIX</title>
+<title>Event Hub FINAL</title>
 
 <style>
-html, body {
+body{
   margin:0;
-  padding:0;
   background:#0b0f1a;
   color:white;
   font-family:system-ui;
-  height:100%;
-}
-
-body{
-  min-height:100vh;
-  min-height:100dvh;
-  overflow-x:hidden;
 }
 
 .container{
   max-width:720px;
   margin:auto;
   padding:16px;
-  box-sizing:border-box;
 }
 
 .card{
@@ -41,20 +32,17 @@ input,select,button{
   margin-top:8px;
   border-radius:10px;
   border:none;
-  font-size:15px;
 }
 
 button{
   background:#6c5ce7;
   color:white;
-  font-weight:600;
 }
 
 .event-row{
   display:grid;
-  grid-template-columns: 1.5fr 1fr 0.8fr 0.6fr 0.6fr;
+  grid-template-columns: 1.2fr 1fr 1fr 0.6fr 0.6fr;
   gap:6px;
-  align-items:center;
   padding:8px;
   margin-top:6px;
   background:rgba(255,255,255,0.05);
@@ -62,42 +50,28 @@ button{
   font-size:13px;
 }
 
-.todo-row{
-  display:grid;
-  grid-template-columns: 40px 1fr 50px;
-  gap:6px;
-  align-items:center;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
+.next-event{
+  background:#1e272e;
+  padding:10px;
   border-radius:10px;
+  margin-top:6px;
 }
 
-/* ALARM UI */
+.countdown{
+  font-size:12px;
+  opacity:0.8;
+}
+
+/* ALARM */
 #alarmBox{
   display:none;
   position:fixed;
   inset:0;
-  background:rgba(255,0,0,0.92);
+  background:red;
   z-index:9999;
   text-align:center;
   padding-top:35%;
   font-size:28px;
-  animation:pulse .8s infinite;
-}
-
-#alarmBox button{
-  margin-top:20px;
-  padding:14px;
-  font-size:18px;
-  background:white;
-  color:black;
-}
-
-@keyframes pulse{
-  0%{transform:scale(1);}
-  50%{transform:scale(1.02);}
-  100%{transform:scale(1);}
 }
 </style>
 </head>
@@ -106,23 +80,17 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO MP3 FIX</h1>
-
-<button onclick="enableNotifications()">🔔 Enable Notifications</button>
-
-<div class="card">
-<h2>🌦 Weather</h2>
-<div id="weather">Loading...</div>
-</div>
+<h1>⏰ NEXT EVENTS</h1>
+<div id="nextEvents"></div>
 
 <div class="card">
 <h2>📅 Events</h2>
 
-<input id="name" placeholder="Event name">
+<input id="nameInput" placeholder="Event name">
 <input id="date" type="date">
 <input id="time" type="time">
 
-<select id="alarm">
+<select id="alarmSelect">
   <option value="5">5 min</option>
   <option value="10">10 min</option>
   <option value="15" selected>15 min</option>
@@ -133,129 +101,76 @@ button{
 <div id="events"></div>
 </div>
 
-<div class="card">
-<h2>📝 Todo</h2>
-
-<input id="todoInput" placeholder="Task">
-<button onclick="addTodo()">Add</button>
-
-<div id="todos"></div>
 </div>
 
-</div>
-
-<!-- ALARM -->
 <div id="alarmBox">
-  ⏰ EVENT ALARM<br><br>
-  <div id="alarmText"></div>
-  <button onclick="stopAlarm()">STOP</button>
+⏰ ALARM
+<div id="alarmText"></div>
+<button onclick="stopAlarm()">STOP</button>
 </div>
 
 <script>
 
-/* DATA */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
-let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 
-/* WEATHER */
-function weather(){
-  const el = document.getElementById("weather");
-
-  Promise.all([
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true").then(r=>r.json()),
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=54.02&longitude=14.77&current_weather=true").then(r=>r.json())
-  ])
-  .then(([v,d])=>{
-    el.innerHTML =
-    `🌍 Vienna: ${v?.current_weather?.temperature ?? "?"}°C<br>
-     🇵🇱 Dziwnów: ${d?.current_weather?.temperature ?? "?"}°C`;
-  })
-  .catch(()=> el.innerText="Weather error");
-}
-
-/* NOTIFICATIONS */
-async function enableNotifications(){
-  const p = await Notification.requestPermission();
-  alert("Permission: " + p);
-}
-
-/* 🔊 MP3 ALARM */
+/* AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
-alarmSound.preload = "auto";
-
 let audioUnlocked = false;
 
-/* unlock audio */
-function unlockAudio(){
+document.addEventListener("click", () => {
   if(audioUnlocked) return;
-
   alarmSound.play().then(()=>{
     alarmSound.pause();
     alarmSound.currentTime = 0;
     audioUnlocked = true;
   }).catch(()=>{});
-}
+},{once:true});
 
-document.addEventListener("click", unlockAudio, { once:true });
-
-/* SAFE PLAY */
 function startAlarmSound(){
-  if(!audioUnlocked) return;
-  alarmSound.currentTime = 0;
-  alarmSound.play().catch(()=>{});
+  if(audioUnlocked){
+    alarmSound.currentTime = 0;
+    alarmSound.play().catch(()=>{});
+  }
 }
 
-/* watchdog (iOS FIX) */
-setInterval(()=>{
-  if(document.getElementById("alarmBox").style.display === "block"){
-    if(alarmSound.paused && audioUnlocked){
-      alarmSound.play().catch(()=>{});
-    }
-  }
-},2000);
+/* COUNTDOWN FORMAT */
+function formatDiff(ms){
+  if(ms <= 0) return "TERAZ";
 
-/* TRIGGER */
+  const s = Math.floor(ms/1000)%60;
+  const m = Math.floor(ms/60000)%60;
+  const h = Math.floor(ms/3600000)%24;
+  const d = Math.floor(ms/86400000);
+
+  return `${d}d ${h}h ${m}m ${s}s`;
+}
+
+/* ALARM */
 function triggerAlarm(ev){
-
   document.getElementById("alarmText").innerText = ev.name;
-  document.getElementById("alarmBox").style.display = "block";
-
+  document.getElementById("alarmBox").style.display="block";
   startAlarmSound();
-
-  if(Notification.permission === "granted"){
-    new Notification("⏰ Event", { body: ev.name });
-  }
-
-  if(navigator.vibrate){
-    navigator.vibrate([300,150,300,150,600]);
-  }
 }
 
-/* STOP */
 function stopAlarm(){
-  document.getElementById("alarmBox").style.display = "none";
+  document.getElementById("alarmBox").style.display="none";
   alarmSound.pause();
-  alarmSound.currentTime = 0;
 }
 
-/* EVENTS */
+/* ADD */
 function addEvent(){
 
-  const name = document.getElementById("name").value;
-  const date = document.getElementById("date").value;
-  const time = document.getElementById("time").value;
-  const alarm = parseInt(document.getElementById("alarm").value);
+  const name = nameInput.value;
+  const t = new Date(`${date.value}T${time.value}`).getTime();
+  const alarm = parseInt(alarmSelect.value);
 
-  const t = new Date(`${date}T${time}`).getTime();
+  if(!name || !t) return;
 
   if(editId){
     const ev = events.find(e=>e.id===editId);
-    ev.name=name;
-    ev.time=t;
-    ev.alarm=alarm;
-    ev.notified=false;
+    Object.assign(ev,{name,time:t,alarm,notified:false});
     editId=null;
   } else {
     events.push({
@@ -271,49 +186,79 @@ function addEvent(){
   render();
 }
 
-/* LOOP */
+/* ALARM LOOP (lekki) */
 setInterval(()=>{
-
   const now = Date.now();
 
-  events.forEach(ev=>{
-    const diff = ev.time - now;
+  let changed=false;
 
-    if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
+  events.forEach(ev=>{
+    const diff = ev.time-now;
+
+    if(!ev.notified && diff <= ev.alarm*60000 && diff>0){
       triggerAlarm(ev);
-      ev.notified = true;
-      save();
+      ev.notified=true;
+      changed=true;
     }
   });
 
-  events = events.filter(e=>e.time > now - 60000);
-  save();
-  render();
+  const before = events.length;
+  events = events.filter(e=>e.time > now);
 
-},3000);
+  if(before !== events.length) changed=true;
+
+  if(changed){
+    save();
+    render();
+  }
+
+},2000);
+
+/* ⏱ COUNTDOWN LOOP (co 1s – TYLKO tekst) */
+setInterval(()=>{
+  const now = Date.now();
+
+  events.forEach(ev=>{
+    const el = document.getElementById("cd-"+ev.id);
+    if(el){
+      el.innerText = formatDiff(ev.time - now);
+    }
+  });
+
+},1000);
 
 /* RENDER */
 function render(){
 
+  events.sort((a,b)=>a.time-b.time);
+
+  const next = document.getElementById("nextEvents");
+  next.innerHTML="";
+
+  events.slice(0,3).forEach(ev=>{
+    next.innerHTML += `
+      <div class="next-event">
+        ${ev.name}<br>
+        ${new Date(ev.time).toLocaleString()}<br>
+        <div class="countdown" id="cd-${ev.id}"></div>
+      </div>
+    `;
+  });
+
   const e = document.getElementById("events");
   e.innerHTML="";
-
-  events.sort((a,b)=>a.time-b.time);
 
   events.forEach(ev=>{
     e.innerHTML += `
       <div class="event-row">
         <div>${ev.name}</div>
         <div>${new Date(ev.time).toLocaleDateString()}</div>
-        <div>${new Date(ev.time).toTimeString().slice(0,5)}</div>
+        <div id="cd-${ev.id}"></div>
         <button onclick="editEvent(${ev.id})">Edit</button>
         <button onclick="delEvent(${ev.id})">X</button>
       </div>
     `;
   });
-
-  const t=document.getElementById("todos");
-  t.innerHTML="";
 }
 
 /* SAVE */
@@ -321,26 +266,27 @@ function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
 
-/* EDIT/DELETE */
+/* EDIT */
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
-  document.getElementById("name").value=ev.name;
-  document.getElementById("date").value=new Date(ev.time).toISOString().split("T")[0];
-  document.getElementById("time").value=new Date(ev.time).toTimeString().slice(0,5);
-  document.getElementById("alarm").value=ev.alarm;
+  nameInput.value=ev.name;
+  date.value=new Date(ev.time).toISOString().split("T")[0];
+  time.value=new Date(ev.time).toTimeString().slice(0,5);
+  alarmSelect.value=ev.alarm;
 
   editId=id;
 }
 
+/* DELETE */
 function delEvent(id){
   events = events.filter(e=>e.id!==id);
   save();
   render();
 }
 
+/* INIT */
 render();
-weather();
 
 </script>
 
