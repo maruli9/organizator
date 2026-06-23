@@ -3,71 +3,50 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Event Hub Pro</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Event Hub Pro FIX</title>
 
 <style>
-:root{
-  --bg:#0b0f1a;
-  --card:rgba(255,255,255,0.06);
-  --accent:#6c5ce7;
-  --text:#fff;
-}
-
 body{
   margin:0;
   font-family:system-ui;
-  background:radial-gradient(circle at top,#1a1f35,#0b0f1a);
-  color:var(--text);
+  background:#0b0f1a;
+  color:white;
 }
 
 .container{
   max-width:720px;
   margin:auto;
-  padding:18px;
-}
-
-h1{
-  font-size:28px;
-  margin-bottom:10px;
+  padding:16px;
 }
 
 .card{
-  background:var(--card);
-  backdrop-filter: blur(12px);
-  border-radius:18px;
+  background:rgba(255,255,255,0.06);
   padding:16px;
   margin:12px 0;
-  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+  border-radius:16px;
 }
 
 input,button{
   width:100%;
-  padding:14px;
-  margin-top:10px;
-  border-radius:12px;
+  padding:12px;
+  margin-top:8px;
+  border-radius:10px;
   border:none;
   font-size:16px;
 }
 
 button{
-  background:var(--accent);
+  background:#6c5ce7;
   color:white;
-  font-weight:600;
+  font-weight:bold;
   cursor:pointer;
 }
 
-.event{
-  padding:12px;
-  border-radius:12px;
-  background:rgba(255,255,255,0.04);
-  margin-top:10px;
-}
-
-.small{
-  opacity:0.8;
-  font-size:14px;
+.item{
+  padding:10px;
+  margin-top:8px;
+  background:rgba(255,255,255,0.05);
+  border-radius:10px;
 }
 </style>
 </head>
@@ -76,45 +55,60 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub Pro</h1>
+<h1>⚡ Event Hub Pro FIX</h1>
 
 <button onclick="enableNotifications()">🔔 Enable notifications</button>
 
+<!-- EVENTS -->
 <div class="card">
-<h2>➕ Add Event</h2>
+<h2>📅 Events</h2>
 
 <input id="name" placeholder="Event name"/>
 <input id="date" type="date"/>
 <input id="time" type="time"/>
+<button onclick="addEvent()">Add event</button>
 
-<button onclick="addEvent()">Save event</button>
-</div>
-
-<div class="card">
-<h2>📅 Events</h2>
 <div id="events"></div>
 </div>
 
+<!-- TODO -->
+<div class="card">
+<h2>📝 Tasks</h2>
+
+<input id="todoInput" placeholder="Task"/>
+<button onclick="addTodo()">Add</button>
+
+<div id="todos"></div>
+</div>
+
+<!-- WEATHER -->
 <div class="card">
 <h2>🌦 Weather</h2>
 <p id="weather">Loading...</p>
-<canvas id="chart"></canvas>
 </div>
 
 </div>
 
 <script>
 
+/* ======================
+   DATA
+====================== */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
-let chartInstance = null;
+let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 
-/* ---------------------------
+/* ======================
    NOTIFICATIONS
-----------------------------*/
+====================== */
 function enableNotifications(){
-  if(!("Notification" in window)) return;
+  if(!("Notification" in window)){
+    alert("No notifications support");
+    return;
+  }
 
   Notification.requestPermission().then(p=>{
+    alert("Permission: " + p);
+
     if(p==="granted"){
       new Notification("Event Hub Pro",{
         body:"Notifications enabled"
@@ -124,14 +118,14 @@ function enableNotifications(){
 }
 
 function notify(title, body){
-  if(Notification.permission === "granted"){
+  if(Notification.permission==="granted"){
     new Notification(title,{body});
   }
 }
 
-/* ---------------------------
-   EVENTS
-----------------------------*/
+/* ======================
+   EVENTS (FIXED)
+====================== */
 function addEvent(){
   const name = document.getElementById("name").value;
   const date = document.getElementById("date").value;
@@ -139,112 +133,128 @@ function addEvent(){
 
   if(!name || !date || !time) return;
 
-  const datetime = new Date(`${date}T${time}`).getTime();
-
   events.push({
     id:Date.now(),
     name,
-    datetime,
+    time:new Date(`${date}T${time}`).getTime(),
     notified:false
   });
 
-  save();
-  render();
+  saveEvents();
+  renderEvents();
+}
+
+function saveEvents(){
+  localStorage.setItem("events",JSON.stringify(events));
+}
+
+function renderEvents(){
+  const el = document.getElementById("events");
+  el.innerHTML="";
+
+  events.sort((a,b)=>a.time-b.time);
+
+  events.forEach(ev=>{
+    el.innerHTML += `
+      <div class="item">
+        <b>${ev.name}</b><br>
+        <span id="t-${ev.id}"></span>
+        <button onclick="deleteEvent(${ev.id})">Delete</button>
+      </div>
+    `;
+  });
 }
 
 function deleteEvent(id){
   events = events.filter(e=>e.id!==id);
-  save();
-  render();
+  saveEvents();
+  renderEvents();
 }
 
-function save(){
-  localStorage.setItem("events",JSON.stringify(events));
-}
-
-function render(){
-  const el = document.getElementById("events");
-  el.innerHTML="";
-
-  events.sort((a,b)=>a.datetime-b.datetime);
-
-  events.forEach(ev=>{
-    const div = document.createElement("div");
-    div.className="event";
-
-    div.innerHTML=`
-      <b>${ev.name}</b><br>
-      <span class="small">${new Date(ev.datetime).toLocaleString()}</span>
-      <p id="t-${ev.id}"></p>
-      <button onclick="deleteEvent(${ev.id})">Delete</button>
-    `;
-
-    el.appendChild(div);
-  });
-}
-
-/* ---------------------------
-   TIMER ENGINE (CORE FIX)
-----------------------------*/
+/* ======================
+   EVENT LOOP (FIXED)
+====================== */
 setInterval(()=>{
   const now = Date.now();
 
   events.forEach(ev=>{
-    const diff = ev.datetime - now;
-    const label = document.getElementById(`t-${ev.id}`);
+    const diff = ev.time - now;
 
-    if(label){
+    const el = document.getElementById(`t-${ev.id}`);
+    if(el){
       if(diff <= 0){
-        label.innerText = "🔥 NOW";
+        el.innerText = "🔥 NOW";
       } else {
-        const min = Math.floor(diff/60000);
-        const hr = Math.floor(min/60);
-        label.innerText = `${hr}h ${min%60}m left`;
+        const m = Math.floor(diff/60000);
+        const h = Math.floor(m/60);
+        el.innerText = `${h}h ${m%60}m`;
       }
     }
 
-    // 15 min alert
-    if(!ev.notified && diff <= 15*60*1000 && diff > 14*60*1000){
-      notify("Upcoming event ⚡", ev.name + " starts in 15 minutes");
+    // 15 min alert FIXED (no narrow window bug)
+    if(!ev.notified && diff <= 15*60*1000 && diff > 0){
+      notify("Event soon ⚡", ev.name + " starts in 15 minutes");
       ev.notified = true;
-      save();
+      saveEvents();
     }
   });
 
 },1000);
 
-/* ---------------------------
-   WEATHER (FIXED)
-----------------------------*/
+/* ======================
+   TODO (FIXED)
+====================== */
+function addTodo(){
+  const val = document.getElementById("todoInput").value;
+  if(!val) return;
+
+  todos.push({text:val,done:false});
+  document.getElementById("todoInput").value="";
+  saveTodos();
+  renderTodos();
+}
+
+function toggleTodo(i){
+  todos[i].done=!todos[i].done;
+  saveTodos();
+  renderTodos();
+}
+
+function deleteTodo(i){
+  todos.splice(i,1);
+  saveTodos();
+  renderTodos();
+}
+
+function saveTodos(){
+  localStorage.setItem("todos",JSON.stringify(todos));
+}
+
+function renderTodos(){
+  const el = document.getElementById("todos");
+  el.innerHTML="";
+
+  todos.forEach((t,i)=>{
+    el.innerHTML += `
+      <div class="item">
+        <input type="checkbox" ${t.done?"checked":""}
+        onchange="toggleTodo(${i})">
+        ${t.text}
+        <button onclick="deleteTodo(${i})">X</button>
+      </div>
+    `;
+  });
+}
+
+/* ======================
+   WEATHER (FIXED - NO HANG)
+====================== */
 function loadWeather(lat,lon){
-
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max&timezone=auto`;
-
-  fetch(url)
+  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
   .then(r=>r.json())
-  .then(data=>{
-
+  .then(d=>{
     document.getElementById("weather").innerText =
-      `Now: ${data.current_weather.temperature}°C`;
-
-    const labels = data.daily.time.slice(0,5);
-    const temps = data.daily.temperature_2m_max.slice(0,5);
-
-    if(chartInstance) chartInstance.destroy();
-
-    chartInstance = new Chart(
-      document.getElementById("chart"),
-      {
-        type:"line",
-        data:{
-          labels,
-          datasets:[{
-            label:"Temp",
-            data:temps
-          }]
-        }
-      }
-    );
+      "🌡 " + d.current_weather.temperature + "°C";
   })
   .catch(()=>{
     document.getElementById("weather").innerText="Weather error";
@@ -252,17 +262,26 @@ function loadWeather(lat,lon){
 }
 
 function initWeather(){
+  const fallback={lat:48.2082,lon:16.3738};
+
+  if(!navigator.geolocation){
+    loadWeather(fallback.lat,fallback.lon);
+    return;
+  }
+
   navigator.geolocation.getCurrentPosition(
     p=>loadWeather(p.coords.latitude,p.coords.longitude),
-    ()=>loadWeather(48.2082,16.3738)
+    ()=>loadWeather(fallback.lat,fallback.lon),
+    {timeout:3000}
   );
 }
 
-/* ---------------------------
+/* ======================
    INIT
-----------------------------*/
+====================== */
 window.onload=()=>{
-  render();
+  renderEvents();
+  renderTodos();
   initWeather();
 };
 
