@@ -7,7 +7,7 @@
 
 <style>
 
-/* 🔒 GLOBAL FIX (STOP "PLYWANIU") */
+/* 🔒 FIX PŁYWANIA (iOS + Android) */
 html, body {
   margin:0;
   padding:0;
@@ -32,10 +32,9 @@ body{
   margin:auto;
   padding:16px;
   box-sizing:border-box;
-  overflow-x:hidden;
 }
 
-/* CARDS */
+/* CARD */
 .card{
   background:rgba(255,255,255,0.06);
   padding:14px;
@@ -43,7 +42,6 @@ body{
   border-radius:14px;
   width:100%;
   box-sizing:border-box;
-  overflow:hidden;
 }
 
 /* INPUTS */
@@ -63,7 +61,7 @@ button{
   font-weight:600;
 }
 
-/* SMART TIMER */
+/* EVENT ITEM */
 .timer-item{
   padding:10px;
   margin-top:8px;
@@ -74,7 +72,7 @@ button{
   word-break:break-word;
 }
 
-/* ---------------- ALARM RED SCREEN ---------------- */
+/* 🔴 ALARM SCREEN */
 #alarmBox{
   display:none;
   position:fixed;
@@ -127,12 +125,6 @@ button{
 
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
-<!-- SMART TIMER -->
-<div class="card">
-  <h2>⏳ Next Events</h2>
-  <div id="nextEvents"></div>
-</div>
-
 <!-- WEATHER -->
 <div class="card">
 <h2>🌦 Weather</h2>
@@ -158,19 +150,15 @@ button{
 <div id="events"></div>
 </div>
 
-<!-- TODO -->
+<!-- SMART NEXT EVENTS -->
 <div class="card">
-<h2>📝 Todo</h2>
-
-<input id="todoInput" placeholder="Task">
-<button onclick="addTodo()">Add</button>
-
-<div id="todos"></div>
+<h2>⏳ Upcoming Events</h2>
+<div id="nextEvents"></div>
 </div>
 
 </div>
 
-<!-- 🔴 FULLSCREEN ALARM (RESTORED) -->
+<!-- 🔴 ALARM -->
 <div id="alarmBox">
   <div id="alarmText"></div>
   <button onclick="stopAlarm()">STOP</button>
@@ -180,7 +168,6 @@ button{
 
 /* DATA */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
-let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 
 /* WEATHER */
@@ -204,20 +191,19 @@ async function enableNotifications(){
   await Notification.requestPermission();
 }
 
-/* 🔊 AUDIO (alarm.mp3) */
+/* 🔊 MP3 ALARM */
 const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
 
 let audioUnlocked = false;
 
-function unlockAudio(){
+document.addEventListener("click", ()=>{
   if(audioUnlocked) return;
   alarmSound.play().then(()=>{
     alarmSound.pause();
     audioUnlocked = true;
   }).catch(()=>{});
-}
-document.addEventListener("click", unlockAudio, { once:true });
+}, { once:true });
 
 function startAlarmSound(){
   if(!audioUnlocked) return;
@@ -225,12 +211,10 @@ function startAlarmSound(){
   alarmSound.play().catch(()=>{});
 }
 
-/* 🔴 ALARM */
+/* ALARM */
 function triggerAlarm(ev){
 
-  const box = document.getElementById("alarmBox");
-  box.style.display = "flex";
-
+  document.getElementById("alarmBox").style.display = "flex";
   document.getElementById("alarmText").innerText = ev.name;
 
   startAlarmSound();
@@ -247,10 +231,9 @@ function triggerAlarm(ev){
 function stopAlarm(){
   document.getElementById("alarmBox").style.display = "none";
   alarmSound.pause();
-  alarmSound.currentTime = 0;
 }
 
-/* EVENTS */
+/* ADD EVENT */
 function addEvent(){
 
   const name = document.getElementById("name").value;
@@ -281,37 +264,42 @@ function addEvent(){
   render();
 }
 
-/* SMART TIMER */
-function updateSmartTimer(){
+/* SMART LIST (WSZYSTKIE PRZYSZŁE EVENTY) */
+function updateSmartList(){
 
   const now = Date.now();
 
-  const next = events
-    .filter(e=>e.time>now)
-    .sort((a,b)=>a.time-b.time)
-    .slice(0,3);
+  const upcoming = events
+    .filter(e => e.time > now)
+    .sort((a,b)=>a.time-b.time);
 
   const el = document.getElementById("nextEvents");
 
-  if(next.length === 0){
+  if(upcoming.length === 0){
     el.innerHTML = "<div class='timer-item'>No upcoming events</div>";
     return;
   }
 
   el.innerHTML = "";
 
-  next.forEach(ev=>{
+  upcoming.forEach(ev=>{
 
     const diff = ev.time - now;
 
-    const h = Math.floor(diff/(1000*60*60));
-    const m = Math.floor((diff/(1000*60))%60);
-    const s = Math.floor((diff/1000)%60);
+    const days = Math.floor(diff/(1000*60*60*24));
+    const hours = Math.floor((diff/(1000*60*60))%24);
+    const minutes = Math.floor((diff/(1000*60))%60);
+    const seconds = Math.floor((diff/1000)%60);
 
     el.innerHTML += `
       <div class="timer-item">
         <b>${ev.name}</b><br>
-        ⏱ ${h}h ${m}m ${s}s left
+        <div style="opacity:0.8;font-size:13px">
+          ${new Date(ev.time).toLocaleString()}
+        </div>
+        <div style="margin-top:4px;font-weight:600">
+          ⏱ ${days > 0 ? days+"d " : ""}${hours}h ${minutes}m ${seconds}s
+        </div>
       </div>
     `;
   });
@@ -336,7 +324,7 @@ setInterval(()=>{
   save();
 
   render();
-  updateSmartTimer();
+  updateSmartList();
 
 },1000);
 
@@ -356,9 +344,6 @@ function render(){
       </div>
     `;
   });
-
-  const t=document.getElementById("todos");
-  t.innerHTML="";
 }
 
 /* SAVE */
@@ -366,9 +351,10 @@ function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
 
+/* INIT */
 render();
 weather();
-updateSmartTimer();
+updateSmartList();
 
 </script>
 
