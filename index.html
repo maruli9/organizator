@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub PRO MAX 4.1</title>
+<title>Event Hub PRO FIXED</title>
 
 <style>
 body{
@@ -41,10 +41,10 @@ button{
   font-weight:600;
 }
 
-/* EVENT ROW (STABLE V4 STYLE) */
+/* EVENT ROW = 1 LINE */
 .event-row{
   display:grid;
-  grid-template-columns: 1.4fr 1fr 0.6fr 0.6fr;
+  grid-template-columns: 1.5fr 1fr 0.8fr 0.6fr 0.6fr;
   gap:6px;
   align-items:center;
   padding:8px;
@@ -66,7 +66,7 @@ button{
   border-radius:10px;
 }
 
-/* WEATHER FIX */
+/* WEATHER */
 #weather{
   font-size:18px;
   font-weight:600;
@@ -78,11 +78,11 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO MAX 4.1</h1>
+<h1>⚡ Event Hub PRO FIXED</h1>
 
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
-<!-- WEATHER (FIXED + ISOLATED) -->
+<!-- WEATHER (SAFE MODULE) -->
 <div class="card">
 <h2>🌦 Weather</h2>
 <div id="weather">Loading weather...</div>
@@ -123,7 +123,7 @@ button{
 <script>
 
 /* =========================
-   DATA
+   STORAGE
 ========================= */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
@@ -137,28 +137,29 @@ async function enableNotifications(){
 }
 
 /* =========================
-   WEATHER (SAFE MODULE - NEVER BREAKS APP)
+   WEATHER (100% SAFE)
 ========================= */
 function initWeather(){
   const el = document.getElementById("weather");
 
   const fallback = { lat: 48.2082, lon: 16.3738 };
 
-  let done = false;
+  let finished = false;
 
-  const timeout = setTimeout(()=>{
-    if(!done){
-      el.innerText = "🌦 Weather timeout (fallback)";
-      done = true;
+  const failSafe = setTimeout(()=>{
+    if(!finished){
+      el.innerText = "🌦 Weather fallback (no response)";
+      finished = true;
     }
-  }, 3500);
+  }, 4000);
 
-  function load(lat, lon){
+  const load = (lat, lon)=>{
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
-      .then(r => r.json())
-      .then(d => {
-        if(done) return;
-        clearTimeout(timeout);
+      .then(r=>r.json())
+      .then(d=>{
+        if(finished) return;
+
+        clearTimeout(failSafe);
 
         if(d && d.current_weather){
           el.innerText = "🌡 " + d.current_weather.temperature + "°C";
@@ -166,15 +167,16 @@ function initWeather(){
           el.innerText = "Weather unavailable";
         }
 
-        done = true;
+        finished = true;
       })
       .catch(()=>{
-        if(done) return;
-        clearTimeout(timeout);
+        if(finished) return;
+
+        clearTimeout(failSafe);
         el.innerText = "Weather error";
-        done = true;
+        finished = true;
       });
-  }
+  };
 
   if(!navigator.geolocation){
     load(fallback.lat, fallback.lon);
@@ -182,8 +184,8 @@ function initWeather(){
   }
 
   navigator.geolocation.getCurrentPosition(
-    pos => load(pos.coords.latitude, pos.coords.longitude),
-    () => load(fallback.lat, fallback.lon),
+    p=>load(p.coords.latitude, p.coords.longitude),
+    ()=>load(fallback.lat, fallback.lon),
     { timeout: 3000 }
   );
 }
@@ -191,6 +193,8 @@ function initWeather(){
 /* =========================
    EVENTS
 ========================= */
+let editId = null;
+
 function addEvent(){
   const name = document.getElementById("name").value;
   const date = document.getElementById("date").value;
@@ -199,23 +203,44 @@ function addEvent(){
 
   if(!name || !date || !time) return;
 
-  events.push({
-    id:Date.now(),
-    name,
-    time:new Date(`${date}T${time}`).getTime(),
-    alarm,
-    notified:false
-  });
+  const t = new Date(`${date}T${time}`).getTime();
+
+  if(editId){
+    const ev = events.find(e=>e.id===editId);
+    ev.name = name;
+    ev.time = t;
+    ev.alarm = alarm;
+    ev.notified = false;
+    editId = null;
+  } else {
+    events.push({
+      id:Date.now(),
+      name,
+      time:t,
+      alarm,
+      notified:false
+    });
+  }
 
   save();
   render();
 }
 
-/* DELETE */
 function delEvent(id){
   events = events.filter(e=>e.id!==id);
   save();
   render();
+}
+
+function editEvent(id){
+  const ev = events.find(e=>e.id===id);
+
+  document.getElementById("name").value = ev.name;
+  document.getElementById("date").value = new Date(ev.time).toISOString().split("T")[0];
+  document.getElementById("time").value = new Date(ev.time).toTimeString().slice(0,5);
+  document.getElementById("alarm").value = ev.alarm;
+
+  editId = id;
 }
 
 /* =========================
@@ -244,7 +269,7 @@ function delTodo(i){
 }
 
 /* =========================
-   LOOP
+   LOOP (ALERTS)
 ========================= */
 setInterval(()=>{
   const now = Date.now();
@@ -261,7 +286,7 @@ setInterval(()=>{
     }
   });
 
-  events = events.filter(e => e.time > now - 60000);
+  events = events.filter(e=>e.time > now - 60000);
   save();
 
   render();
@@ -269,7 +294,7 @@ setInterval(()=>{
 },3000);
 
 /* =========================
-   RENDER (STABLE)
+   RENDER
 ========================= */
 function render(){
 
@@ -284,6 +309,7 @@ function render(){
         <div>${ev.name}</div>
         <div>${new Date(ev.time).toLocaleDateString()}</div>
         <div>${new Date(ev.time).toTimeString().slice(0,5)}</div>
+        <button onclick="editEvent(${ev.id})">Edit</button>
         <button onclick="delEvent(${ev.id})">X</button>
       </div>
     `;
