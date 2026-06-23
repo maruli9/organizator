@@ -180,21 +180,17 @@ document.addEventListener("click", ()=>{
 },{once:true});
 
 function startAlarmSound(){
-  if(audioUnlocked && isAlarmActive){
-    alarmSound.currentTime = 0;
-    alarmSound.play().catch(()=>{});
-  }
+  console.log("PLAY ATTEMPT", {
+    isAlarmActive,
+    visible: document.getElementById("alarmBox").style.display
+  });
+
+  if(!isAlarmActive) return;
+  if(document.getElementById("alarmBox").style.display !== "block") return;
+
+  alarmSound.currentTime = 0;
+  alarmSound.play().catch(()=>{});
 }
-
-/* WATCHDOG FIX */
-setInterval(()=>{
-  if(isAlarmActive){
-    if(alarmSound.paused && audioUnlocked){
-      alarmSound.play().catch(()=>{});
-    }
-  }
-},2000);
-
 /* ALARM */
 function triggerAlarm(ev){
   isAlarmActive = true;
