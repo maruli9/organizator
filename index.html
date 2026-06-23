@@ -3,29 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub STABLE MOBILE FIX</title>
+<title>Event Hub STABLE FINAL</title>
 
 <style>
-html, body {
+body{
   margin:0;
-  padding:0;
+  font-family:system-ui;
   background:#0b0f1a;
   color:white;
-  font-family:system-ui;
-  height:100%;
-}
-
-body{
-  min-height:100vh;
-  min-height:100dvh;
-  overflow-x:hidden;
 }
 
 .container{
   max-width:720px;
   margin:auto;
   padding:16px;
-  box-sizing:border-box;
 }
 
 .card{
@@ -73,17 +64,24 @@ button{
   border-radius:10px;
 }
 
-/* ALARM UI */
+.weather-box{
+  font-size:14px;
+  line-height:1.6;
+}
+
+/* 🔴 IOS SAFE ALARM UI */
 #alarmBox{
   display:none;
   position:fixed;
-  inset:0;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
   background:rgba(255,0,0,0.92);
   z-index:9999;
   text-align:center;
   padding-top:35%;
   font-size:28px;
-  animation:pulse .8s infinite;
 }
 
 #alarmBox button{
@@ -93,12 +91,6 @@ button{
   background:white;
   color:black;
 }
-
-@keyframes pulse{
-  0%{transform:scale(1);}
-  50%{transform:scale(1.02);}
-  100%{transform:scale(1);}
-}
 </style>
 </head>
 
@@ -106,15 +98,15 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO MP3 FIX</h1>
+<h1>⚡ Event Hub STABLE FINAL</h1>
 
-<button onclick="enableNotifications()">🔔 Enable Notifications</button>
-
+<!-- WEATHER -->
 <div class="card">
 <h2>🌦 Weather</h2>
-<div id="weather">Loading...</div>
+<div id="weather">Loading weather...</div>
 </div>
 
+<!-- EVENTS -->
 <div class="card">
 <h2>📅 Events</h2>
 
@@ -126,6 +118,7 @@ button{
   <option value="5">5 min</option>
   <option value="10">10 min</option>
   <option value="15" selected>15 min</option>
+  <option value="30">30 min</option>
 </select>
 
 <button onclick="addEvent()">Add event</button>
@@ -133,6 +126,7 @@ button{
 <div id="events"></div>
 </div>
 
+<!-- TODO -->
 <div class="card">
 <h2>📝 Todo</h2>
 
@@ -144,7 +138,7 @@ button{
 
 </div>
 
-<!-- ALARM -->
+<!-- 🔴 IOS SAFE ALARM OVERLAY -->
 <div id="alarmBox">
   ⏰ EVENT ALARM<br><br>
   <div id="alarmText"></div>
@@ -153,94 +147,63 @@ button{
 
 <script>
 
-/* DATA */
+/* =========================
+   DATA
+========================= */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 
-/* WEATHER */
+/* =========================
+   WEATHER
+========================= */
 function weather(){
   const el = document.getElementById("weather");
 
-  Promise.all([
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true").then(r=>r.json()),
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=54.02&longitude=14.77&current_weather=true").then(r=>r.json())
-  ])
-  .then(([v,d])=>{
-    el.innerHTML =
-    `🌍 Vienna: ${v?.current_weather?.temperature ?? "?"}°C<br>
-     🇵🇱 Dziwnów: ${d?.current_weather?.temperature ?? "?"}°C`;
-  })
-  .catch(()=> el.innerText="Weather error");
+  const vienna = fetch(
+    "https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true"
+  ).then(r=>r.json());
+
+  const dzw = fetch(
+    "https://api.open-meteo.com/v1/forecast?latitude=54.02&longitude=14.77&current_weather=true"
+  ).then(r=>r.json());
+
+  Promise.all([vienna,dzw])
+    .then(([v,d])=>{
+      el.innerHTML = `
+        🌍 Vienna (Essling): ${v?.current_weather?.temperature ?? "?"}°C<br>
+        🇵🇱 Dziwnów: ${d?.current_weather?.temperature ?? "?"}°C
+      `;
+    })
+    .catch(()=> el.innerText="Weather error");
 }
 
-/* NOTIFICATIONS */
-async function enableNotifications(){
-  const p = await Notification.requestPermission();
-  alert("Permission: " + p);
-}
-
-/* 🔊 MP3 ALARM */
-const alarmSound = new Audio("./alarm.mp3");
+/* =========================
+   IOS SAFE ALARM SYSTEM
+========================= */
+const alarmSound = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 alarmSound.loop = true;
-alarmSound.preload = "auto";
 
-let audioUnlocked = false;
-
-/* unlock audio */
-function unlockAudio(){
-  if(audioUnlocked) return;
-
-  alarmSound.play().then(()=>{
-    alarmSound.pause();
-    alarmSound.currentTime = 0;
-    audioUnlocked = true;
-  }).catch(()=>{});
-}
-
-document.addEventListener("click", unlockAudio, { once:true });
-
-/* SAFE PLAY */
-function startAlarmSound(){
-  if(!audioUnlocked) return;
-  alarmSound.currentTime = 0;
-  alarmSound.play().catch(()=>{});
-}
-
-/* watchdog (iOS FIX) */
-setInterval(()=>{
-  if(document.getElementById("alarmBox").style.display === "block"){
-    if(alarmSound.paused && audioUnlocked){
-      alarmSound.play().catch(()=>{});
-    }
-  }
-},2000);
-
-/* TRIGGER */
 function triggerAlarm(ev){
-
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display = "block";
 
-  startAlarmSound();
-
-  if(Notification.permission === "granted"){
-    new Notification("⏰ Event", { body: ev.name });
-  }
+  alarmSound.play().catch(()=>{});
 
   if(navigator.vibrate){
-    navigator.vibrate([300,150,300,150,600]);
+    navigator.vibrate([300,200,300,200,300]);
   }
 }
 
-/* STOP */
 function stopAlarm(){
   document.getElementById("alarmBox").style.display = "none";
   alarmSound.pause();
   alarmSound.currentTime = 0;
 }
 
-/* EVENTS */
+/* =========================
+   EVENTS
+========================= */
 function addEvent(){
 
   const name = document.getElementById("name").value;
@@ -248,15 +211,17 @@ function addEvent(){
   const time = document.getElementById("time").value;
   const alarm = parseInt(document.getElementById("alarm").value);
 
+  if(!name || !date || !time) return;
+
   const t = new Date(`${date}T${time}`).getTime();
 
   if(editId){
     const ev = events.find(e=>e.id===editId);
-    ev.name=name;
-    ev.time=t;
-    ev.alarm=alarm;
-    ev.notified=false;
-    editId=null;
+    ev.name = name;
+    ev.time = t;
+    ev.alarm = alarm;
+    ev.notified = false;
+    editId = null;
   } else {
     events.push({
       id:Date.now(),
@@ -271,7 +236,51 @@ function addEvent(){
   render();
 }
 
-/* LOOP */
+function editEvent(id){
+  const ev = events.find(e=>e.id===id);
+
+  document.getElementById("name").value = ev.name;
+  document.getElementById("date").value = new Date(ev.time).toISOString().split("T")[0];
+  document.getElementById("time").value = new Date(ev.time).toTimeString().slice(0,5);
+  document.getElementById("alarm").value = ev.alarm;
+
+  editId = id;
+}
+
+function delEvent(id){
+  events = events.filter(e=>e.id!==id);
+  save();
+  render();
+}
+
+/* =========================
+   TODO
+========================= */
+function addTodo(){
+  const v = document.getElementById("todoInput").value;
+  if(!v) return;
+
+  todos.push({text:v,done:false});
+  document.getElementById("todoInput").value="";
+  saveTodos();
+  render();
+}
+
+function toggleTodo(i){
+  todos[i].done = !todos[i].done;
+  saveTodos();
+  render();
+}
+
+function delTodo(i){
+  todos.splice(i,1);
+  saveTodos();
+  render();
+}
+
+/* =========================
+   ALARM ENGINE (FIXED)
+========================= */
 setInterval(()=>{
 
   const now = Date.now();
@@ -288,11 +297,14 @@ setInterval(()=>{
 
   events = events.filter(e=>e.time > now - 60000);
   save();
+
   render();
 
 },3000);
 
-/* RENDER */
+/* =========================
+   RENDER
+========================= */
 function render(){
 
   const e = document.getElementById("events");
@@ -312,33 +324,35 @@ function render(){
     `;
   });
 
-  const t=document.getElementById("todos");
+  const t = document.getElementById("todos");
   t.innerHTML="";
+
+  todos.forEach((x,i)=>{
+    t.innerHTML += `
+      <div class="todo-row">
+        <input type="checkbox" ${x.done?"checked":""}
+        onchange="toggleTodo(${i})">
+
+        <div style="text-decoration:${x.done?'line-through':'none'}">
+          ${x.text}
+        </div>
+
+        <button onclick="delTodo(${i})">X</button>
+      </div>
+    `;
+  });
+
 }
 
 /* SAVE */
 function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
-
-/* EDIT/DELETE */
-function editEvent(id){
-  const ev = events.find(e=>e.id===id);
-
-  document.getElementById("name").value=ev.name;
-  document.getElementById("date").value=new Date(ev.time).toISOString().split("T")[0];
-  document.getElementById("time").value=new Date(ev.time).toTimeString().slice(0,5);
-  document.getElementById("alarm").value=ev.alarm;
-
-  editId=id;
+function saveTodos(){
+  localStorage.setItem("todos",JSON.stringify(todos));
 }
 
-function delEvent(id){
-  events = events.filter(e=>e.id!==id);
-  save();
-  render();
-}
-
+/* INIT */
 render();
 weather();
 
