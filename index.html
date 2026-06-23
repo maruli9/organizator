@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub STABLE MOBILE FIX</title>
+<title>Event Hub</title>
 
 <style>
 html, body {
@@ -12,13 +12,7 @@ html, body {
   background:#0b0f1a;
   color:white;
   font-family:system-ui;
-  height:100%;
-}
-
-body{
   min-height:100vh;
-  min-height:100dvh;
-  overflow-x:hidden;
 }
 
 .container{
@@ -50,54 +44,23 @@ button{
   font-weight:600;
 }
 
-.event-row{
-  display:grid;
-  grid-template-columns: 1.5fr 1fr 0.8fr 0.6fr 0.6fr;
-  gap:6px;
-  align-items:center;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
-  border-radius:10px;
-  font-size:13px;
-}
-
-.todo-row{
-  display:grid;
-  grid-template-columns: 40px 1fr 50px;
-  gap:6px;
-  align-items:center;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
+/* SMART TIMER */
+.timer-item{
+  padding:10px;
+  margin-top:8px;
+  background:rgba(255,255,255,0.08);
   border-radius:10px;
 }
 
-/* ALARM UI */
-#alarmBox{
-  display:none;
-  position:fixed;
-  inset:0;
-  background:rgba(255,0,0,0.92);
-  z-index:9999;
-  text-align:center;
-  padding-top:35%;
-  font-size:28px;
-  animation:pulse .8s infinite;
-}
-
-#alarmBox button{
-  margin-top:20px;
-  padding:14px;
+.timer-title{
   font-size:18px;
-  background:white;
-  color:black;
+  font-weight:700;
+  margin-bottom:8px;
 }
 
-@keyframes pulse{
-  0%{transform:scale(1);}
-  50%{transform:scale(1.02);}
-  100%{transform:scale(1);}
+.timer-small{
+  font-size:13px;
+  opacity:0.8;
 }
 </style>
 </head>
@@ -106,15 +69,19 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO MP3 FIX</h1>
+<!-- 🔥 SMART TIMER PRO -->
+<div class="card">
+  <div class="timer-title">⏳ Next Events</div>
+  <div id="nextEvents"></div>
+</div>
 
-<button onclick="enableNotifications()">🔔 Enable Notifications</button>
-
+<!-- WEATHER -->
 <div class="card">
 <h2>🌦 Weather</h2>
 <div id="weather">Loading...</div>
 </div>
 
+<!-- EVENTS -->
 <div class="card">
 <h2>📅 Events</h2>
 
@@ -133,6 +100,7 @@ button{
 <div id="events"></div>
 </div>
 
+<!-- TODO -->
 <div class="card">
 <h2>📝 Todo</h2>
 
@@ -176,51 +144,35 @@ function weather(){
 
 /* NOTIFICATIONS */
 async function enableNotifications(){
-  const p = await Notification.requestPermission();
-  alert("Permission: " + p);
+  await Notification.requestPermission();
 }
 
-/* 🔊 MP3 ALARM */
+/* 🔊 AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
-alarmSound.preload = "auto";
 
 let audioUnlocked = false;
 
-/* unlock audio */
 function unlockAudio(){
   if(audioUnlocked) return;
-
   alarmSound.play().then(()=>{
     alarmSound.pause();
-    alarmSound.currentTime = 0;
     audioUnlocked = true;
   }).catch(()=>{});
 }
-
 document.addEventListener("click", unlockAudio, { once:true });
 
-/* SAFE PLAY */
 function startAlarmSound(){
   if(!audioUnlocked) return;
   alarmSound.currentTime = 0;
   alarmSound.play().catch(()=>{});
 }
 
-/* watchdog (iOS FIX) */
-setInterval(()=>{
-  if(document.getElementById("alarmBox").style.display === "block"){
-    if(alarmSound.paused && audioUnlocked){
-      alarmSound.play().catch(()=>{});
-    }
-  }
-},2000);
-
-/* TRIGGER */
+/* ALARM */
 function triggerAlarm(ev){
 
-  document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display = "block";
+  document.getElementById("alarmText").innerText = ev.name;
 
   startAlarmSound();
 
@@ -233,11 +185,9 @@ function triggerAlarm(ev){
   }
 }
 
-/* STOP */
 function stopAlarm(){
   document.getElementById("alarmBox").style.display = "none";
   alarmSound.pause();
-  alarmSound.currentTime = 0;
 }
 
 /* EVENTS */
@@ -271,6 +221,44 @@ function addEvent(){
   render();
 }
 
+/* SMART TIMER PRO */
+function updateSmartTimer(){
+
+  const now = Date.now();
+
+  const next = events
+    .filter(e=>e.time>now)
+    .sort((a,b)=>a.time-b.time)
+    .slice(0,3);
+
+  const el = document.getElementById("nextEvents");
+
+  if(next.length === 0){
+    el.innerHTML = "<div class='timer-item'>No upcoming events</div>";
+    return;
+  }
+
+  el.innerHTML = "";
+
+  next.forEach(ev=>{
+
+    const diff = ev.time - now;
+
+    const h = Math.floor(diff/(1000*60*60));
+    const m = Math.floor((diff/(1000*60))%60);
+    const s = Math.floor((diff/1000)%60);
+
+    el.innerHTML += `
+      <div class="timer-item">
+        <b>${ev.name}</b><br>
+        <div class="timer-small">
+          ⏱ ${h}h ${m}m ${s}s left
+        </div>
+      </div>
+    `;
+  });
+}
+
 /* LOOP */
 setInterval(()=>{
 
@@ -288,9 +276,11 @@ setInterval(()=>{
 
   events = events.filter(e=>e.time > now - 60000);
   save();
-  render();
 
-},3000);
+  render();
+  updateSmartTimer();
+
+},1000);
 
 /* RENDER */
 function render(){
@@ -302,18 +292,12 @@ function render(){
 
   events.forEach(ev=>{
     e.innerHTML += `
-      <div class="event-row">
-        <div>${ev.name}</div>
-        <div>${new Date(ev.time).toLocaleDateString()}</div>
-        <div>${new Date(ev.time).toTimeString().slice(0,5)}</div>
-        <button onclick="editEvent(${ev.id})">Edit</button>
-        <button onclick="delEvent(${ev.id})">X</button>
+      <div class="timer-item">
+        <b>${ev.name}</b><br>
+        ${new Date(ev.time).toLocaleString()}
       </div>
     `;
   });
-
-  const t=document.getElementById("todos");
-  t.innerHTML="";
 }
 
 /* SAVE */
@@ -321,26 +305,9 @@ function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
 
-/* EDIT/DELETE */
-function editEvent(id){
-  const ev = events.find(e=>e.id===id);
-
-  document.getElementById("name").value=ev.name;
-  document.getElementById("date").value=new Date(ev.time).toISOString().split("T")[0];
-  document.getElementById("time").value=new Date(ev.time).toTimeString().slice(0,5);
-  document.getElementById("alarm").value=ev.alarm;
-
-  editId=id;
-}
-
-function delEvent(id){
-  events = events.filter(e=>e.id!==id);
-  save();
-  render();
-}
-
 render();
 weather();
+updateSmartTimer();
 
 </script>
 
