@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub FINAL FIX</title>
+<title>Event Hub + Gitara Mode</title>
 
 <style>
 html, body {
@@ -40,6 +40,7 @@ button{
   color:white;
 }
 
+/* EVENTS */
 .event-row{
   display:grid;
   grid-template-columns: 1.2fr 1fr 1fr 0.6fr 0.6fr;
@@ -49,16 +50,6 @@ button{
   background:rgba(255,255,255,0.05);
   border-radius:10px;
   font-size:13px;
-}
-
-.todo-row{
-  display:grid;
-  grid-template-columns: 40px 1fr 50px;
-  gap:6px;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
-  border-radius:10px;
 }
 
 .next-event{
@@ -84,6 +75,11 @@ button{
   padding-top:35%;
   font-size:28px;
 }
+
+/* GITARA PANEL */
+#guitarPanel{
+  display:none;
+}
 </style>
 </head>
 
@@ -91,15 +87,11 @@ button{
 
 <div class="container">
 
-<h1>⏰ NEXT EVENTS</h1>
+<h1>⏰ EVENT HUB</h1>
+
+<button onclick="openGuitar()">🎸 Gitara</button>
+
 <div id="nextEvents"></div>
-
-<button onclick="enableNotifications()">🔔 Enable Notifications</button>
-
-<div class="card">
-<h2>🌦 Weather</h2>
-<div id="weather">Loading...</div>
-</div>
 
 <div class="card">
 <h2>📅 Events</h2>
@@ -119,17 +111,39 @@ button{
 <div id="events"></div>
 </div>
 
+</div>
+
+<!-- 🎸 GITARA PANEL -->
+<div id="guitarPanel" class="container">
+
+<h1>🎸 Gitara – System treningu</h1>
+
 <div class="card">
-<h2>📝 Todo</h2>
-
-<input id="todoInput" placeholder="Task">
-<button onclick="addTodo()">Add</button>
-
-<div id="todos"></div>
+<h2>📍 Najbliższa sesja</h2>
+<div id="guitarNext">Brak zaplanowanej sesji</div>
 </div>
 
+<div class="card">
+<h2>⏱ Faza</h2>
+<div id="guitarPhase">IDLE</div>
 </div>
 
+<div class="card">
+<h2>🎯 Wykonanie</h2>
+<button onclick="startPractice()">START</button>
+<button onclick="finishPractice()">DONE</button>
+</div>
+
+<div class="card">
+<h2>📊 Feedback</h2>
+<div id="guitarFeedback">Brak danych</div>
+</div>
+
+<button onclick="closeGuitar()">⬅ Wróć</button>
+
+</div>
+
+<!-- ALARM -->
 <div id="alarmBox">
 ⏰ EVENT ALARM
 <div id="alarmText"></div>
@@ -138,91 +152,54 @@ button{
 
 <script>
 
-/* DATA */
+/* EVENTS */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
-let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 let isAlarmActive = false;
 
+/* GITARA STATE */
+let guitarSession = {
+  status: "idle"
+};
 
-/* WEATHER */
-function weather(){
-  const el = document.getElementById("weather");
-
-  Promise.all([
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true").then(r=>r.json()),
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=54.02&longitude=14.77&current_weather=true").then(r=>r.json())
-  ])
-  .then(([v,d])=>{
-    el.innerHTML =
-    `🌍 Vienna: ${v?.current_weather?.temperature ?? "?"}°C<br>
-     🇵🇱 Dziwnów: ${d?.current_weather?.temperature ?? "?"}°C`;
-  })
-  .catch(()=> el.innerText="Weather error");
+/* PANEL SWITCH */
+function openGuitar(){
+  document.querySelector(".container").style.display = "none";
+  document.getElementById("guitarPanel").style.display = "block";
 }
 
-/* AUDIO */
-const alarmSound = new Audio("./alarm.mp3");
-
-
-alarmSound.loop = true;
-let audioUnlocked = false;
-
-window.addEventListener("load", ()=>{
-  alarmSound.pause();
-  alarmSound.currentTime = 0;
-});
-
-document.addEventListener("click", ()=>{
-  if(audioUnlocked) return;
-  alarmSound.play().then(()=>{
-    alarmSound.pause();
-    alarmSound.currentTime = 0;
-    audioUnlocked = true;
-  }).catch(()=>{});
-},{once:true});
-
-function startAlarmSound(){
-  if(audioUnlocked && isAlarmActive){
-    alarmSound.currentTime = 0;
-    alarmSound.play().catch(()=>{});
-  }
+function closeGuitar(){
+  document.querySelector(".container").style.display = "block";
+  document.getElementById("guitarPanel").style.display = "none";
 }
 
-/* WATCHDOG FIX */
-setInterval(()=>{
-  if(isAlarmActive){
-    if(alarmSound.paused && audioUnlocked){
-      alarmSound.play().catch(()=>{});
-    }
-  }
-},2000);
+/* GITARA LOGIC */
+function updateGuitarUI(){
+  document.getElementById("guitarPhase").innerText = guitarSession.status;
+}
+
+function startPractice(){
+  guitarSession.status = "active";
+  updateGuitarUI();
+}
+
+function finishPractice(){
+  guitarSession.status = "done";
+  document.getElementById("guitarFeedback").innerText =
+    "✔ Sesja zakończona – utrzymujesz rytm";
+  updateGuitarUI();
+}
 
 /* ALARM */
 function triggerAlarm(ev){
   isAlarmActive = true;
-
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display="block";
-
-  startAlarmSound();
 }
 
 function stopAlarm(){
   isAlarmActive = false;
   document.getElementById("alarmBox").style.display="none";
-  alarmSound.pause();
-  alarmSound.currentTime = 0;
-}
-
-/* COUNTDOWN */
-function formatDiff(ms){
-  if(ms<=0) return "TERAZ";
-  const s=Math.floor(ms/1000)%60;
-  const m=Math.floor(ms/60000)%60;
-  const h=Math.floor(ms/3600000)%24;
-  const d=Math.floor(ms/86400000);
-  return `${d}d ${h}h ${m}m ${s}s`;
 }
 
 /* ADD EVENT */
@@ -252,34 +229,37 @@ function addEvent(){
 }
 
 /* LOOP */
-setTimeout(()=>{
+setInterval(()=>{
+  const now = Date.now();
 
-  setInterval(()=>{
-    const now = Date.now();
+  events.forEach(ev=>{
+    const diff = ev.time - now;
 
-    events.forEach(ev=>{
-      const diff = ev.time - now;
+    if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
+      triggerAlarm(ev);
+      ev.notified=true;
+    }
+  });
 
-      if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
-        triggerAlarm(ev);
-        ev.notified = true;
-      }
-    });
+  events = events.filter(e=>e.time > now);
+  save();
+  render();
 
-    events = events.filter(e=>e.time > now);
+},2000);
 
-  },2000);
-
-},1500);
-
-/* COUNTDOWN LOOP */
+/* COUNTDOWN */
 setInterval(()=>{
   const now = Date.now();
 
   events.forEach(ev=>{
     const el = document.querySelectorAll(`[data-id="${ev.id}"]`);
     el.forEach(e=>{
-      e.innerText = formatDiff(ev.time-now);
+      const diff = ev.time-now;
+      const s=Math.floor(diff/1000)%60;
+      const m=Math.floor(diff/60000)%60;
+      const h=Math.floor(diff/3600000)%24;
+      const d=Math.floor(diff/86400000);
+      e.innerText = `${d}d ${h}h ${m}m ${s}s`;
     });
   });
 
@@ -318,51 +298,20 @@ function render(){
     `;
   });
 
-  renderTodos();
+  updateGuitarNext();
 }
 
-/* TODOS */
-function addTodo(){
-  const val = document.getElementById("todoInput").value;
-  if(!val) return;
+/* GITARA NEXT SESSION */
+function updateGuitarNext(){
+  const el = document.getElementById("guitarNext");
 
-  todos.push({text:val,done:false});
-  saveTodos();
-  renderTodos();
-}
+  if(events.length === 0){
+    el.innerText = "Brak sesji";
+    return;
+  }
 
-function renderTodos(){
-  const t=document.getElementById("todos");
-  t.innerHTML="";
-
-  todos.forEach((td,i)=>{
-    t.innerHTML += `
-      <div class="todo-row">
-        <input type="checkbox" ${td.done?"checked":""} onchange="toggleTodo(${i})">
-        <div>${td.text}</div>
-        <button onclick="delTodo(${i})">X</button>
-      </div>
-    `;
-  });
-}
-
-function toggleTodo(i){
-  todos[i].done=!todos[i].done;
-  saveTodos();
-}
-
-function delTodo(i){
-  todos.splice(i,1);
-  saveTodos();
-  renderTodos();
-}
-
-/* SAVE */
-function save(){
-  localStorage.setItem("events",JSON.stringify(events));
-}
-function saveTodos(){
-  localStorage.setItem("todos",JSON.stringify(todos));
+  const next = events[0];
+  el.innerText = next.name + " – " + new Date(next.time).toLocaleString();
 }
 
 /* EDIT/DELETE */
@@ -383,9 +332,13 @@ function delEvent(id){
   render();
 }
 
+/* SAVE */
+function save(){
+  localStorage.setItem("events",JSON.stringify(events));
+}
+
 /* INIT */
 render();
-weather();
 
 </script>
 
