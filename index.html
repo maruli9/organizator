@@ -25,8 +25,6 @@ body {
   font-family: Arial;
   background:#0f0f0f;
   color:white;
-
-  /* ważne dla iOS PWA */
   -webkit-text-size-adjust: 100%;
 }
 
@@ -68,30 +66,34 @@ button {
 <div class="container">
 
 <h1>📅 Event Planner</h1>
+
 <button onclick="enableNotifications()">Enable Notifications</button>
-<!-- EVENT -->
+
 <div class="card">
 <h2>📅 Event</h2>
+
 <input id="eventName" placeholder="Event name"/>
 <input id="eventDate" type="date"/>
 <input id="eventTime" type="time"/>
+
 <button onclick="saveEvent()">Save Event</button>
 
 <h3 id="displayName"></h3>
 <p id="countdown"></p>
 </div>
 
-<!-- TODO -->
 <div class="card">
 <h2>📝 Todo List</h2>
+
 <input id="todoInput" placeholder="Add task"/>
 <button onclick="addTodo()">Add</button>
+
 <div id="todoList"></div>
 </div>
 
-<!-- WEATHER -->
 <div class="card">
 <h2>🌦 Weather</h2>
+
 <p id="weather">Loading...</p>
 <canvas id="chart"></canvas>
 </div>
@@ -100,8 +102,23 @@ button {
 
 <script>
 
+////////////////////////////////////////////////////
+// 🔔 NOTIFICATIONS
+////////////////////////////////////////////////////
+function enableNotifications() {
+  if (!("Notification" in window)) return;
 
-// ---------------- EVENT ----------------
+  Notification.requestPermission().then(p => {
+    if (p === "granted") {
+      new Notification("Notifications enabled 🔔");
+      localStorage.setItem("notif", "true");
+    }
+  });
+}
+
+////////////////////////////////////////////////////
+// 📅 EVENT
+////////////////////////////////////////////////////
 function saveEvent(){
   const name = document.getElementById("eventName").value;
   const date = document.getElementById("eventDate").value;
@@ -110,7 +127,9 @@ function saveEvent(){
   localStorage.setItem("eventName", name);
   localStorage.setItem("eventDate", date);
   localStorage.setItem("eventTime", time);
-document.getElementById("displayName").innerText = name;
+
+  document.getElementById("displayName").innerText = name;
+
   updateCountdown();
 }
 
@@ -126,22 +145,22 @@ function updateCountdown(){
 
   const eventDateTime = new Date(`${date}T${time}`);
   const now = new Date();
-
   const diff = eventDateTime - now;
 
   if(diff <= 0){
-    document.getElementById("displayName").innerText = name;
     document.getElementById("countdown").innerText = "Event is happening now 🔥";
+    document.getElementById("displayName").innerText = name;
     return;
   }
 
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
+  const days = Math.floor(diff / (1000*60*60*24));
+  const hours = Math.floor((diff / (1000*60*60)) % 24);
+  const minutes = Math.floor((diff / (1000*60)) % 60);
 
-  document.getElementById("displayName").innerText = name;
   document.getElementById("countdown").innerText =
     `${days}d ${hours}h ${minutes}m left`;
+
+  document.getElementById("displayName").innerText = name;
 }
 
 function initEvent(){
@@ -156,12 +175,9 @@ function initEvent(){
   updateCountdown();
 }
 
-// START APP
-initEvent();
-setInterval(updateCountdown, 1000);
-window.addEventListener("load", initEvent);
-// ---------------- TODO ----------------
-// ---------------- TODO ----------------
+////////////////////////////////////////////////////
+// 📝 TODO
+////////////////////////////////////////////////////
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 
 function renderTodos(){
@@ -209,33 +225,21 @@ function removeTodo(i){
   renderTodos();
 }
 
-// start
-renderTodos();
-// ---------------- WEATHER ----------------
-async function loadWeather() {
+////////////////////////////////////////////////////
+// 🌦 WEATHER
+////////////////////////////////////////////////////
+function loadWeather() {
 
-  // zawsze pokaż coś od razu
   document.getElementById("weather").innerText = "Loading weather...";
 
   const fallbackLat = 48.2082;
   const fallbackLon = 16.3738;
 
-  const usePosition = (lat, lon) => fetchWeather(lat, lon);
-
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        usePosition(pos.coords.latitude, pos.coords.longitude);
-      },
-      () => {
-        // jak user odmówi → fallback
-        usePosition(fallbackLat, fallbackLon);
-      },
-      { timeout: 5000 } // 🔥 KLUCZ
-    );
-  } else {
-    usePosition(fallbackLat, fallbackLon);
-  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+    () => fetchWeather(fallbackLat, fallbackLon),
+    { timeout: 3000 }
+  );
 }
 
 async function fetchWeather(lat, lon) {
@@ -249,8 +253,8 @@ async function fetchWeather(lat, lon) {
     document.getElementById("weather").innerText =
       `Now: ${data.current_weather.temperature}°C`;
 
-    const temps = data.daily.temperature_2m_max.slice(0, 5);
-    const labels = data.daily.time.slice(0, 5);
+    const temps = data.daily.temperature_2m_max.slice(0,5);
+    const labels = data.daily.time.slice(0,5);
 
     new Chart(document.getElementById("chart"), {
       type: "line",
@@ -265,21 +269,15 @@ async function fetchWeather(lat, lon) {
   }
 }
 
-loadWeather();
-
-function enableNotifications() {
-  if (!("Notification" in window)) {
-    alert("Notifications not supported");
-    return;
-  }
-
-  Notification.requestPermission().then(permission => {
-    if (permission === "granted") {
-      new Notification("Notifications enabled 🔔");
-      localStorage.setItem("notif", "true");
-    }
-  });
-}
+////////////////////////////////////////////////////
+// START APP
+////////////////////////////////////////////////////
+window.addEventListener("load", () => {
+  initEvent();
+  setInterval(updateCountdown, 1000);
+  renderTodos();
+  loadWeather();
+});
 
 </script>
 
