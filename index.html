@@ -164,7 +164,11 @@ function weather(){
    NOTIFICATIONS
 ========================= */
 async function enableNotifications(){
-  await Notification.requestPermission();
+  const p = await Notification.requestPermission();
+
+  alert("Permission: " + p);
+
+  console.log("Notification permission:", p);
 }
 
 /* =========================
