@@ -4,16 +4,33 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Event Countdown + Planner</title>
+
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Event">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="theme-color" content="#0f0f0f">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { font-family: Arial; background:#0f0f0f; color:white; margin:0; padding:20px; }
+body {
+  font-family: Arial;
+  background:#0f0f0f;
+  color:white;
+  margin:0;
+  padding:20px;
+}
+
 .container { max-width:900px; margin:auto; }
 
-.card { background:#1c1c1c; padding:20px; border-radius:12px; margin-bottom:15px; }
+.card {
+  background:#1c1c1c;
+  padding:20px;
+  border-radius:12px;
+  margin-bottom:15px;
+}
 
 input, button {
   padding:10px;
@@ -24,7 +41,11 @@ input, button {
 
 button { cursor:pointer; }
 
-.todo-item { display:flex; justify-content:space-between; margin:5px 0; }
+.todo-item {
+  display:flex;
+  justify-content:space-between;
+  margin:5px 0;
+}
 </style>
 </head>
 
@@ -34,15 +55,18 @@ button { cursor:pointer; }
 
 <h1>📅 Event Planner</h1>
 
+<!-- EVENT -->
 <div class="card">
-<h2>Event</h2>
+<h2>📅 Event</h2>
 <input id="eventName" placeholder="Event name"/>
 <input id="eventDate" type="date"/>
 <button onclick="saveEvent()">Save Event</button>
 
-<h3 id="countdown"></h3>
+<h3 id="displayName"></h3>
+<p id="countdown"></p>
 </div>
 
+<!-- TODO -->
 <div class="card">
 <h2>📝 Todo List</h2>
 <input id="todoInput" placeholder="Add task"/>
@@ -50,6 +74,7 @@ button { cursor:pointer; }
 <div id="todoList"></div>
 </div>
 
+<!-- WEATHER -->
 <div class="card">
 <h2>🌦 Weather</h2>
 <p id="weather">Loading...</p>
@@ -62,26 +87,46 @@ button { cursor:pointer; }
 
 // ---------------- EVENT ----------------
 function saveEvent(){
-  localStorage.setItem("eventName", document.getElementById("eventName").value);
-  localStorage.setItem("eventDate", document.getElementById("eventDate").value);
+  const name = document.getElementById("eventName").value;
+  const date = document.getElementById("eventDate").value;
+
+  localStorage.setItem("eventName", name);
+  localStorage.setItem("eventDate", date);
+
   updateCountdown();
 }
 
 function updateCountdown(){
   const name = localStorage.getItem("eventName") || "Event";
-  const date = new Date(localStorage.getItem("eventDate"));
+  const dateStr = localStorage.getItem("eventDate");
 
-  if(!date) return;
+  if(!dateStr){
+    document.getElementById("countdown").innerText = "Set a date";
+    return;
+  }
 
+  const date = new Date(dateStr);
   const now = new Date();
   const diff = date - now;
-  const days = Math.ceil(diff / (1000*60*60*24));
 
+  if(diff <= 0){
+    document.getElementById("countdown").innerText =
+      `${name} is happening now or passed`;
+    return;
+  }
+
+  const days = Math.floor(diff / (1000*60*60*24));
+  const hours = Math.floor((diff / (1000*60*60)) % 24);
+
+  document.getElementById("displayName").innerText = name;
   document.getElementById("countdown").innerText =
-    `${name} in ${days} days`;
+    `${days} days ${hours} hours left`;
 }
 
+// start + refresh
+updateCountdown();
 setInterval(updateCountdown, 1000);
+
 
 // ---------------- TODO ----------------
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
@@ -104,9 +149,12 @@ function renderTodos(){
 }
 
 function addTodo(){
-  const val = document.getElementById("todoInput").value;
+  const input = document.getElementById("todoInput");
+  const val = input.value;
+
   if(val){
     todos.push(val);
+    input.value = "";
     renderTodos();
   }
 }
@@ -118,7 +166,8 @@ function removeTodo(i){
 
 renderTodos();
 
-// ---------------- WEATHER (mock API simple) ----------------
+
+// ---------------- WEATHER ----------------
 const mockTemp = Array.from({length:10},()=>Math.floor(Math.random()*10+10));
 
 document.getElementById("weather").innerText =
@@ -130,8 +179,7 @@ new Chart(document.getElementById("chart"), {
     labels: ["-5","-4","-3","-2","-1","Today","+1","+2","+3","+4"],
     datasets: [{
       label: "Temperature",
-      data: mockTemp,
-      borderColor: "cyan"
+      data: mockTemp
     }]
   }
 });
