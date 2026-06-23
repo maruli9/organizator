@@ -74,6 +74,7 @@ button {
 <h2>📅 Event</h2>
 <input id="eventName" placeholder="Event name"/>
 <input id="eventDate" type="date"/>
+<input id="eventTime" type="time"/>
 <button onclick="saveEvent()">Save Event</button>
 
 <h3 id="displayName"></h3>
@@ -103,47 +104,55 @@ button {
 function saveEvent(){
   const name = document.getElementById("eventName").value;
   const date = document.getElementById("eventDate").value;
+  const time = document.getElementById("eventTime").value;
 
   localStorage.setItem("eventName", name);
   localStorage.setItem("eventDate", date);
+  localStorage.setItem("eventTime", time);
 
   updateCountdown();
 }
 
 function updateCountdown(){
   const name = localStorage.getItem("eventName") || "Event";
-  const dateStr = localStorage.getItem("eventDate");
+  const date = localStorage.getItem("eventDate");
+  const time = localStorage.getItem("eventTime") || "00:00";
 
-  if(!dateStr){
-    document.getElementById("countdown").innerText = "Set a date";
+  if(!date){
+    document.getElementById("countdown").innerText = "Set event date";
     return;
   }
 
-  const date = new Date(dateStr);
+  const eventDateTime = new Date(`${date}T${time}`);
   const now = new Date();
-  const diff = date - now;
+
+  const diff = eventDateTime - now;
 
   if(diff <= 0){
     document.getElementById("countdown").innerText =
-      `${name} is happening now or passed`;
+      `${name} is happening now 🔥`;
     return;
   }
 
-  const notifEnabled = localStorage.getItem("notif") === "true";
-
-if (notifEnabled && days === 1 && hours === 0) {
-  new Notification(`${name} is tomorrow 🔥`);
-}
-
   const days = Math.floor(diff / (1000*60*60*24));
   const hours = Math.floor((diff / (1000*60*60)) % 24);
+  const minutes = Math.floor((diff / (1000*60)) % 60);
 
   document.getElementById("displayName").innerText = name;
   document.getElementById("countdown").innerText =
-    `${days} days ${hours} hours left`;
+    `${days}d ${hours}h ${minutes}m left`;
+
+  // 🔔 NOTIFICATION 15 MIN BEFORE
+  const notifEnabled = localStorage.getItem("notif") === "true";
+
+  const fifteenMin = 15 * 60 * 1000;
+
+  if(notifEnabled && diff > 0 && diff <= fifteenMin){
+    new Notification(`⏰ ${name} starts in 15 minutes!`);
+  }
 }
 
-// start + refresh
+// live update
 updateCountdown();
 setInterval(updateCountdown, 1000);
 
