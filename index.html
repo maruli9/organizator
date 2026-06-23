@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub FINAL</title>
+<title>Event Hub FINAL FIX</title>
 
 <style>
-body{
+html, body {
   margin:0;
+  padding:0;
   background:#0b0f1a;
   color:white;
   font-family:system-ui;
@@ -50,6 +51,16 @@ button{
   font-size:13px;
 }
 
+.todo-row{
+  display:grid;
+  grid-template-columns: 40px 1fr 50px;
+  gap:6px;
+  padding:8px;
+  margin-top:6px;
+  background:rgba(255,255,255,0.05);
+  border-radius:10px;
+}
+
 .next-event{
   background:#1e272e;
   padding:10px;
@@ -83,14 +94,21 @@ button{
 <h1>⏰ NEXT EVENTS</h1>
 <div id="nextEvents"></div>
 
+<button onclick="enableNotifications()">🔔 Enable Notifications</button>
+
+<div class="card">
+<h2>🌦 Weather</h2>
+<div id="weather">Loading...</div>
+</div>
+
 <div class="card">
 <h2>📅 Events</h2>
 
-<input id="nameInput" placeholder="Event name">
+<input id="name" placeholder="Event name">
 <input id="date" type="date">
 <input id="time" type="time">
 
-<select id="alarmSelect">
+<select id="alarm">
   <option value="5">5 min</option>
   <option value="10">10 min</option>
   <option value="15" selected>15 min</option>
@@ -101,25 +119,58 @@ button{
 <div id="events"></div>
 </div>
 
+<div class="card">
+<h2>📝 Todo</h2>
+
+<input id="todoInput" placeholder="Task">
+<button onclick="addTodo()">Add</button>
+
+<div id="todos"></div>
+</div>
+
 </div>
 
 <div id="alarmBox">
-⏰ ALARM
+⏰ EVENT ALARM
 <div id="alarmText"></div>
 <button onclick="stopAlarm()">STOP</button>
 </div>
 
 <script>
 
+/* DATA */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
+let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
+let isAlarmActive = false;
+
+/* WEATHER */
+function weather(){
+  const el = document.getElementById("weather");
+
+  Promise.all([
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true").then(r=>r.json()),
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=54.02&longitude=14.77&current_weather=true").then(r=>r.json())
+  ])
+  .then(([v,d])=>{
+    el.innerHTML =
+    `🌍 Vienna: ${v?.current_weather?.temperature ?? "?"}°C<br>
+     🇵🇱 Dziwnów: ${d?.current_weather?.temperature ?? "?"}°C`;
+  })
+  .catch(()=> el.innerText="Weather error");
+}
 
 /* AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
 let audioUnlocked = false;
 
-document.addEventListener("click", () => {
+window.addEventListener("load", ()=>{
+  alarmSound.pause();
+  alarmSound.currentTime = 0;
+});
+
+document.addEventListener("click", ()=>{
   if(audioUnlocked) return;
   alarmSound.play().then(()=>{
     alarmSound.pause();
@@ -129,42 +180,53 @@ document.addEventListener("click", () => {
 },{once:true});
 
 function startAlarmSound(){
-  if(audioUnlocked){
+  if(audioUnlocked && isAlarmActive){
     alarmSound.currentTime = 0;
     alarmSound.play().catch(()=>{});
   }
 }
 
-/* COUNTDOWN FORMAT */
-function formatDiff(ms){
-  if(ms <= 0) return "TERAZ";
-
-  const s = Math.floor(ms/1000)%60;
-  const m = Math.floor(ms/60000)%60;
-  const h = Math.floor(ms/3600000)%24;
-  const d = Math.floor(ms/86400000);
-
-  return `${d}d ${h}h ${m}m ${s}s`;
-}
+/* WATCHDOG FIX */
+setInterval(()=>{
+  if(isAlarmActive){
+    if(alarmSound.paused && audioUnlocked){
+      alarmSound.play().catch(()=>{});
+    }
+  }
+},2000);
 
 /* ALARM */
 function triggerAlarm(ev){
+  isAlarmActive = true;
+
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display="block";
+
   startAlarmSound();
 }
 
 function stopAlarm(){
+  isAlarmActive = false;
   document.getElementById("alarmBox").style.display="none";
   alarmSound.pause();
+  alarmSound.currentTime = 0;
 }
 
-/* ADD */
-function addEvent(){
+/* COUNTDOWN */
+function formatDiff(ms){
+  if(ms<=0) return "TERAZ";
+  const s=Math.floor(ms/1000)%60;
+  const m=Math.floor(ms/60000)%60;
+  const h=Math.floor(ms/3600000)%24;
+  const d=Math.floor(ms/86400000);
+  return `${d}d ${h}h ${m}m ${s}s`;
+}
 
-  const name = nameInput.value;
+/* ADD EVENT */
+function addEvent(){
+  const name = document.getElementById("name").value;
   const t = new Date(`${date.value}T${time.value}`).getTime();
-  const alarm = parseInt(alarmSelect.value);
+  const alarm = parseInt(document.getElementById("alarm").value);
 
   if(!name || !t) return;
 
@@ -186,7 +248,7 @@ function addEvent(){
   render();
 }
 
-/* ALARM LOOP (lekki) */
+/* LOOP */
 setInterval(()=>{
   const now = Date.now();
 
@@ -205,7 +267,7 @@ setInterval(()=>{
   const before = events.length;
   events = events.filter(e=>e.time > now);
 
-  if(before !== events.length) changed=true;
+  if(before!==events.length) changed=true;
 
   if(changed){
     save();
@@ -214,15 +276,15 @@ setInterval(()=>{
 
 },2000);
 
-/* ⏱ COUNTDOWN LOOP (co 1s – TYLKO tekst) */
+/* COUNTDOWN LOOP */
 setInterval(()=>{
   const now = Date.now();
 
   events.forEach(ev=>{
-    const el = document.getElementById("cd-"+ev.id);
-    if(el){
-      el.innerText = formatDiff(ev.time - now);
-    }
+    const el = document.querySelectorAll(`[data-id="${ev.id}"]`);
+    el.forEach(e=>{
+      e.innerText = formatDiff(ev.time-now);
+    });
   });
 
 },1000);
@@ -240,7 +302,7 @@ function render(){
       <div class="next-event">
         ${ev.name}<br>
         ${new Date(ev.time).toLocaleString()}<br>
-        <div class="countdown" id="cd-${ev.id}"></div>
+        <div class="countdown" data-id="${ev.id}"></div>
       </div>
     `;
   });
@@ -253,32 +315,72 @@ function render(){
       <div class="event-row">
         <div>${ev.name}</div>
         <div>${new Date(ev.time).toLocaleDateString()}</div>
-        <div id="cd-${ev.id}"></div>
+        <div data-id="${ev.id}"></div>
         <button onclick="editEvent(${ev.id})">Edit</button>
         <button onclick="delEvent(${ev.id})">X</button>
       </div>
     `;
   });
+
+  renderTodos();
+}
+
+/* TODOS */
+function addTodo(){
+  const val = document.getElementById("todoInput").value;
+  if(!val) return;
+
+  todos.push({text:val,done:false});
+  saveTodos();
+  renderTodos();
+}
+
+function renderTodos(){
+  const t=document.getElementById("todos");
+  t.innerHTML="";
+
+  todos.forEach((td,i)=>{
+    t.innerHTML += `
+      <div class="todo-row">
+        <input type="checkbox" ${td.done?"checked":""} onchange="toggleTodo(${i})">
+        <div>${td.text}</div>
+        <button onclick="delTodo(${i})">X</button>
+      </div>
+    `;
+  });
+}
+
+function toggleTodo(i){
+  todos[i].done=!todos[i].done;
+  saveTodos();
+}
+
+function delTodo(i){
+  todos.splice(i,1);
+  saveTodos();
+  renderTodos();
 }
 
 /* SAVE */
 function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
+function saveTodos(){
+  localStorage.setItem("todos",JSON.stringify(todos));
+}
 
-/* EDIT */
+/* EDIT/DELETE */
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
-  nameInput.value=ev.name;
+  name.value=ev.name;
   date.value=new Date(ev.time).toISOString().split("T")[0];
   time.value=new Date(ev.time).toTimeString().slice(0,5);
-  alarmSelect.value=ev.alarm;
+  alarm.value=ev.alarm;
 
   editId=id;
 }
 
-/* DELETE */
 function delEvent(id){
   events = events.filter(e=>e.id!==id);
   save();
@@ -287,6 +389,7 @@ function delEvent(id){
 
 /* INIT */
 render();
+weather();
 
 </script>
 
