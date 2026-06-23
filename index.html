@@ -68,7 +68,7 @@ button {
 <div class="container">
 
 <h1>📅 Event Planner</h1>
-
+<button onclick="enableNotifications()">Enable Notifications</button>
 <!-- EVENT -->
 <div class="card">
 <h2>📅 Event</h2>
@@ -128,6 +128,12 @@ function updateCountdown(){
       `${name} is happening now or passed`;
     return;
   }
+
+  const notifEnabled = localStorage.getItem("notif") === "true";
+
+if (notifEnabled && days === 1 && hours === 0) {
+  new Notification(`${name} is tomorrow 🔥`);
+}
 
   const days = Math.floor(diff / (1000*60*60*24));
   const hours = Math.floor((diff / (1000*60*60)) % 24);
@@ -209,6 +215,21 @@ new Chart(document.getElementById("chart"), {
     }]
   }
 });
+
+
+function enableNotifications() {
+  if (!("Notification" in window)) {
+    alert("Notifications not supported");
+    return;
+  }
+
+  Notification.requestPermission().then(permission => {
+    if (permission === "granted") {
+      new Notification("Notifications enabled 🔔");
+      localStorage.setItem("notif", "true");
+    }
+  });
+}
 
 </script>
 
