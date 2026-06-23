@@ -12,53 +12,44 @@
 <link rel="apple-touch-icon" href="icon-512.png">
 <meta name="theme-color" content="#0f0f0f">
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
-
 body {
+  margin: 0;
+  padding: 20px;
   font-family: Arial;
-  background:#0f0f0f;
-  color:white;
-  -webkit-text-size-adjust: 100%;
+  background: #0f0f0f;
+  color: white;
 }
 
 .container {
-  max-width:900px;
-  margin:auto;
-  padding:20px;
-  box-sizing: border-box;
+  max-width: 900px;
+  margin: auto;
 }
 
 .card {
-  background:#1c1c1c;
-  padding:20px;
-  border-radius:12px;
-  margin-bottom:15px;
+  background: #1c1c1c;
+  padding: 20px;
+  margin-bottom: 15px;
+  border-radius: 12px;
 }
 
 input, button {
-  padding:10px;
-  margin:5px;
-  border-radius:8px;
-  border:none;
+  padding: 10px;
+  margin: 5px;
+  border-radius: 8px;
+  border: none;
 }
 
-button {
-  cursor:pointer;
-}
+button { cursor: pointer; }
 
 .todo-item {
-  display:flex;
-  justify-content:space-between;
-  margin:5px 0;
+  display: flex;
+  justify-content: space-between;
+  margin: 5px 0;
 }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -70,7 +61,7 @@ button {
 <button onclick="enableNotifications()">Enable Notifications</button>
 
 <div class="card">
-<h2>📅 Event</h2>
+<h2>Event</h2>
 
 <input id="eventName" placeholder="Event name"/>
 <input id="eventDate" type="date"/>
@@ -83,19 +74,15 @@ button {
 </div>
 
 <div class="card">
-<h2>📝 Todo List</h2>
-
-<input id="todoInput" placeholder="Add task"/>
+<h2>Todo</h2>
+<input id="todoInput" placeholder="Task"/>
 <button onclick="addTodo()">Add</button>
-
 <div id="todoList"></div>
 </div>
 
 <div class="card">
-<h2>🌦 Weather</h2>
-
+<h2>Weather</h2>
 <p id="weather">Loading...</p>
-<canvas id="chart"></canvas>
 </div>
 
 </div>
@@ -103,80 +90,71 @@ button {
 <script>
 
 ////////////////////////////////////////////////////
-// 🔔 NOTIFICATIONS
+// NOTIFICATIONS
 ////////////////////////////////////////////////////
-function enableNotifications() {
-  if (!("Notification" in window)) return;
+function enableNotifications(){
+  if(!("Notification" in window)) return;
 
-  Notification.requestPermission().then(p => {
-    if (p === "granted") {
+  Notification.requestPermission().then(p=>{
+    if(p==="granted"){
       new Notification("Notifications enabled 🔔");
-      localStorage.setItem("notif", "true");
+      localStorage.setItem("notif","true");
     }
   });
 }
 
 ////////////////////////////////////////////////////
-// 📅 EVENT
+// EVENT SYSTEM (STABLE)
 ////////////////////////////////////////////////////
-function saveEvent(){
-  const name = document.getElementById("eventName").value;
-  const date = document.getElementById("eventDate").value;
-  const time = document.getElementById("eventTime").value;
-
-  localStorage.setItem("eventName", name);
-  localStorage.setItem("eventDate", date);
-  localStorage.setItem("eventTime", time);
-
-  document.getElementById("displayName").innerText = name;
-
-  updateCountdown();
+function getEvent(){
+  return JSON.parse(localStorage.getItem("event"));
 }
 
-function updateCountdown(){
-  const name = localStorage.getItem("eventName") || "Event";
-  const date = localStorage.getItem("eventDate");
-  const time = localStorage.getItem("eventTime") || "00:00";
+function saveEvent(){
+  const event = {
+    name: document.getElementById("eventName").value,
+    date: document.getElementById("eventDate").value,
+    time: document.getElementById("eventTime").value || "00:00"
+  };
 
-  if(!date){
-    document.getElementById("countdown").innerText = "Set event date";
+  localStorage.setItem("event", JSON.stringify(event));
+  renderEvent();
+}
+
+function renderEvent(){
+  const event = getEvent();
+
+  if(!event){
+    document.getElementById("countdown").innerText = "No event";
     return;
   }
 
-  const eventDateTime = new Date(`${date}T${time}`);
+  document.getElementById("eventName").value = event.name || "";
+  document.getElementById("eventDate").value = event.date || "";
+  document.getElementById("eventTime").value = event.time || "";
+
+  document.getElementById("displayName").innerText = event.name;
+
+  const eventTime = new Date(`${event.date}T${event.time}`);
   const now = new Date();
-  const diff = eventDateTime - now;
+
+  const diff = eventTime - now;
 
   if(diff <= 0){
-    document.getElementById("countdown").innerText = "Event is happening now 🔥";
-    document.getElementById("displayName").innerText = name;
+    document.getElementById("countdown").innerText = "🔥 NOW";
     return;
   }
 
-  const days = Math.floor(diff / (1000*60*60*24));
-  const hours = Math.floor((diff / (1000*60*60)) % 24);
-  const minutes = Math.floor((diff / (1000*60)) % 60);
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000)/3600000);
+  const minutes = Math.floor((diff % 3600000)/60000);
 
   document.getElementById("countdown").innerText =
-    `${days}d ${hours}h ${minutes}m left`;
-
-  document.getElementById("displayName").innerText = name;
-}
-
-function initEvent(){
-  const name = localStorage.getItem("eventName");
-  const date = localStorage.getItem("eventDate");
-  const time = localStorage.getItem("eventTime");
-
-  if(name) document.getElementById("eventName").value = name;
-  if(date) document.getElementById("eventDate").value = date;
-  if(time) document.getElementById("eventTime").value = time;
-
-  updateCountdown();
+    `${days}d ${hours}h ${minutes}m`;
 }
 
 ////////////////////////////////////////////////////
-// 📝 TODO
+// TODO
 ////////////////////////////////////////////////////
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 
@@ -186,15 +164,10 @@ function renderTodos(){
 
   todos.forEach((t,i)=>{
     const div = document.createElement("div");
-    div.className="todo-item";
+    div.className = "todo-item";
 
     div.innerHTML = `
-      <label>
-        <input type="checkbox" ${t.done ? "checked" : ""} onchange="toggleTodo(${i})">
-        <span style="text-decoration:${t.done ? "line-through" : "none"}">
-          ${t.text}
-        </span>
-      </label>
+      <span>${t}</span>
       <button onclick="removeTodo(${i})">X</button>
     `;
 
@@ -206,18 +179,11 @@ function renderTodos(){
 
 function addTodo(){
   const input = document.getElementById("todoInput");
-  const val = input.value;
-
-  if(val){
-    todos.push({ text: val, done: false });
+  if(input.value){
+    todos.push(input.value);
     input.value = "";
     renderTodos();
   }
-}
-
-function toggleTodo(i){
-  todos[i].done = !todos[i].done;
-  renderTodos();
 }
 
 function removeTodo(i){
@@ -226,95 +192,88 @@ function removeTodo(i){
 }
 
 ////////////////////////////////////////////////////
-// 🌦 WEATHER
+// WEATHER (STABLE)
 ////////////////////////////////////////////////////
-function loadWeather() {
-
-  document.getElementById("weather").innerText = "Loading weather...";
-
+function loadWeather(){
   const fallbackLat = 48.2082;
   const fallbackLon = 16.3738;
 
+  if(!navigator.geolocation){
+    fetchWeather(fallbackLat, fallbackLon);
+    return;
+  }
+
   navigator.geolocation.getCurrentPosition(
-    (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
-    () => fetchWeather(fallbackLat, fallbackLon),
-    { timeout: 3000 }
+    (pos)=>fetchWeather(pos.coords.latitude, pos.coords.longitude),
+    ()=>fetchWeather(fallbackLat, fallbackLon),
+    {timeout:4000}
   );
 }
 
-async function fetchWeather(lat, lon) {
+async function fetchWeather(lat, lon){
+  try{
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+    );
 
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max&timezone=auto`;
-
-  try {
-    const res = await fetch(url);
     const data = await res.json();
 
     document.getElementById("weather").innerText =
       `Now: ${data.current_weather.temperature}°C`;
 
-    const temps = data.daily.temperature_2m_max.slice(0,5);
-    const labels = data.daily.time.slice(0,5);
-
-    new Chart(document.getElementById("chart"), {
-      type: "line",
-      data: {
-        labels,
-        datasets: [{ label: "5 day temp", data: temps }]
-      }
-    });
-
-  } catch (e) {
+  } catch(e){
     document.getElementById("weather").innerText = "Weather error";
+  }
+}
+
+////////////////////////////////////////////////////
+// ALARMS (SAFE)
+////////////////////////////////////////////////////
+let lastAlarm = "";
+
+function checkAlarms(){
+  if(localStorage.getItem("notif") !== "true") return;
+
+  const event = getEvent();
+  if(!event) return;
+
+  const eventTime = new Date(`${event.date}T${event.time}`);
+  const now = new Date();
+
+  const diff = eventTime - now;
+
+  const key = Math.floor(diff / 60000);
+  if(key === lastAlarm) return;
+  lastAlarm = key;
+
+  const day = 86400000;
+  const hour = 3600000;
+  const min15 = 900000;
+
+  if(diff > day - 60000 && diff < day + 60000){
+    new Notification("📅 Tomorrow: " + event.name);
+  }
+
+  if(diff > hour - 60000 && diff < hour + 60000){
+    new Notification("⏰ 1 hour: " + event.name);
+  }
+
+  if(diff > min15 - 60000 && diff < min15 + 60000){
+    new Notification("🔥 15 min: " + event.name);
   }
 }
 
 ////////////////////////////////////////////////////
 // START APP
 ////////////////////////////////////////////////////
-window.addEventListener("load", () => {
-  initEvent();
-  setInterval(updateCountdown, 1000);
-  setInterval(checkAlarms, 30000);
+window.addEventListener("load", ()=>{
+  renderEvent();
   renderTodos();
   loadWeather();
+
+  setInterval(renderEvent, 1000);
+  setInterval(checkAlarms, 30000);
 });
-function checkAlarms(){
-
-  const notif = localStorage.getItem("notif") === "true";
-
-  if(!notif) return;
-
-  const name = localStorage.getItem("eventName") || "Event";
-  const date = localStorage.getItem("eventDate");
-  const time = localStorage.getItem("eventTime") || "00:00";
-
-  if(!date) return;
-
-  const eventTime = new Date(`${date}T${time}`);
-  const now = new Date();
-
-  const diff = eventTime - now;
-
-  const oneDay = 24 * 60 * 60 * 1000;
-  const oneHour = 60 * 60 * 1000;
-  const fifteenMin = 15 * 60 * 1000;
-
-  // 🔔 1 dzień
-  if(diff > oneDay - 1000 && diff < oneDay + 1000){
-    new Notification(`📅 ${name} is tomorrow`);
-  }
-
-  // 🔔 1 godzina
-  if(diff > oneHour - 1000 && diff < oneHour + 1000){
-    new Notification(`⏰ ${name} in 1 hour`);
-  }
-
-  // 🔔 15 minut
-  if(diff > fifteenMin - 1000 && diff < fifteenMin + 1000){
-    new Notification(`🔥 ${name} in 15 minutes`);
-  }
-}
 
 </script>
 
