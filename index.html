@@ -100,6 +100,7 @@ button {
 
 <script>
 
+
 // ---------------- EVENT ----------------
 function saveEvent(){
   const name = document.getElementById("eventName").value;
@@ -129,34 +130,35 @@ function updateCountdown(){
   const diff = eventDateTime - now;
 
   if(diff <= 0){
-    document.getElementById("countdown").innerText =
-      `${name} is happening now 🔥`;
+    document.getElementById("displayName").innerText = name;
+    document.getElementById("countdown").innerText = "Event is happening now 🔥";
     return;
   }
 
-  const days = Math.floor(diff / (1000*60*60*24));
-  const hours = Math.floor((diff / (1000*60*60)) % 24);
-  const minutes = Math.floor((diff / (1000*60)) % 60);
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diff / (1000 * 60)) % 60);
 
   document.getElementById("displayName").innerText = name;
   document.getElementById("countdown").innerText =
     `${days}d ${hours}h ${minutes}m left`;
-
-  // 🔔 NOTIFICATION 15 MIN BEFORE
-  const notifEnabled = localStorage.getItem("notif") === "true";
-
-  const fifteenMin = 15 * 60 * 1000;
-
-  if(notifEnabled && diff > 0 && diff <= fifteenMin){
-    new Notification(`⏰ ${name} starts in 15 minutes!`);
-  }
 }
 
-// live update
-updateCountdown();
+function initEvent(){
+  const name = localStorage.getItem("eventName");
+  const date = localStorage.getItem("eventDate");
+  const time = localStorage.getItem("eventTime");
+
+  if(name) document.getElementById("eventName").value = name;
+  if(date) document.getElementById("eventDate").value = date;
+  if(time) document.getElementById("eventTime").value = time;
+
+  updateCountdown();
+}
+
+// START APP
+initEvent();
 setInterval(updateCountdown, 1000);
-
-
 // ---------------- TODO ----------------
 // ---------------- TODO ----------------
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
@@ -211,42 +213,54 @@ renderTodos();
 // ---------------- WEATHER ----------------
 async function loadWeather() {
 
-  // 1. GET LOCATION (iPhone / browser GPS)
-  navigator.geolocation.getCurrentPosition(async (pos) => {
+  // fallback (jeśli user nie da GPS)
+  let lat = 48.2082;
+  let lon = 16.3738;
 
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
+  // próbuj GPS
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
 
-    // 2. CALL WEATHER API
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min&current_weather=true&timezone=auto`;
+      lat = pos.coords.latitude;
+      lon = pos.coords.longitude;
 
-    const res = await fetch(url);
-    const data = await res.json();
+      await fetchWeather(lat, lon);
 
-    // 3. CURRENT WEATHER
-    const temp = data.current_weather.temperature;
-    const wind = data.current_weather.windspeed;
+    }, async () => {
 
-    document.getElementById("weather").innerText =
-      `Now: ${temp}°C | Wind: ${wind} km/h`;
+      // jeśli user odmówił
+      await fetchWeather(lat, lon);
 
-    // 4. 5 DAY CHART
-    const labels = data.daily.time.slice(0,5);
-    const temps = data.daily.temperature_2m_max.slice(0,5);
-
-    new Chart(document.getElementById("chart"), {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [{
-          label: "Max Temp (5 days)",
-          data: temps
-        }]
-      }
     });
+  } else {
+    await fetchWeather(lat, lon);
+  }
+}
 
+async function fetchWeather(lat, lon) {
+
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max&timezone=auto`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  document.getElementById("weather").innerText =
+    `Now: ${data.current_weather.temperature}°C`;
+
+  const temps = data.daily.temperature_2m_max.slice(0, 5);
+  const labels = data.daily.time.slice(0, 5);
+
+  new Chart(document.getElementById("chart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "5 day temp",
+        data: temps
+      }]
+    }
   });
-
 }
 
 loadWeather();
