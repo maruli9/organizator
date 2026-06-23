@@ -15,7 +15,6 @@ html, body {
   height:100%;
 }
 
-/* 🔥 FIX IOS “pływania” */
 body{
   min-height:100vh;
   min-height:100dvh;
@@ -51,7 +50,6 @@ button{
   font-weight:600;
 }
 
-/* EVENT */
 .event-row{
   display:grid;
   grid-template-columns: 1.5fr 1fr 0.8fr 0.6fr 0.6fr;
@@ -64,7 +62,6 @@ button{
   font-size:13px;
 }
 
-/* TODO */
 .todo-row{
   display:grid;
   grid-template-columns: 40px 1fr 50px;
@@ -76,7 +73,7 @@ button{
   border-radius:10px;
 }
 
-/* 🔴 ALARM FIXED (NO SHIFT) */
+/* ALARM UI */
 #alarmBox{
   display:none;
   position:fixed;
@@ -109,7 +106,7 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub STABLE MOBILE FIX</h1>
+<h1>⚡ Event Hub PRO MP3 FIX</h1>
 
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
@@ -161,7 +158,7 @@ let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 
-/* 🌦 WEATHER (fixed) */
+/* WEATHER */
 function weather(){
   const el = document.getElementById("weather");
 
@@ -177,18 +174,20 @@ function weather(){
   .catch(()=> el.innerText="Weather error");
 }
 
-/* 🔔 NOTIFICATIONS (BACK AGAIN) */
+/* NOTIFICATIONS */
 async function enableNotifications(){
   const p = await Notification.requestPermission();
   alert("Permission: " + p);
 }
 
-/* 🔊 AUDIO */
-const alarmSound = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+/* 🔊 MP3 ALARM */
+const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
+alarmSound.preload = "auto";
 
 let audioUnlocked = false;
 
+/* unlock audio */
 function unlockAudio(){
   if(audioUnlocked) return;
 
@@ -201,26 +200,40 @@ function unlockAudio(){
 
 document.addEventListener("click", unlockAudio, { once:true });
 
-/* 🔥 ALARM */
+/* SAFE PLAY */
+function startAlarmSound(){
+  if(!audioUnlocked) return;
+  alarmSound.currentTime = 0;
+  alarmSound.play().catch(()=>{});
+}
+
+/* watchdog (iOS FIX) */
+setInterval(()=>{
+  if(document.getElementById("alarmBox").style.display === "block"){
+    if(alarmSound.paused && audioUnlocked){
+      alarmSound.play().catch(()=>{});
+    }
+  }
+},2000);
+
+/* TRIGGER */
 function triggerAlarm(ev){
 
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display = "block";
 
-  if(audioUnlocked){
-    alarmSound.currentTime = 0;
-    alarmSound.play().catch(()=>{});
-  }
+  startAlarmSound();
 
   if(Notification.permission === "granted"){
     new Notification("⏰ Event", { body: ev.name });
   }
 
   if(navigator.vibrate){
-    navigator.vibrate([300,150,300,150,500]);
+    navigator.vibrate([300,150,300,150,600]);
   }
 }
 
+/* STOP */
 function stopAlarm(){
   document.getElementById("alarmBox").style.display = "none";
   alarmSound.pause();
@@ -239,14 +252,23 @@ function addEvent(){
 
   if(editId){
     const ev = events.find(e=>e.id===editId);
-    ev.name=name; ev.time=t; ev.alarm=alarm;
+    ev.name=name;
+    ev.time=t;
+    ev.alarm=alarm;
     ev.notified=false;
     editId=null;
   } else {
-    events.push({id:Date.now(),name,time:t,alarm,notified:false});
+    events.push({
+      id:Date.now(),
+      name,
+      time:t,
+      alarm,
+      notified:false
+    });
   }
 
-  save(); render();
+  save();
+  render();
 }
 
 /* LOOP */
@@ -292,56 +314,29 @@ function render(){
 
   const t=document.getElementById("todos");
   t.innerHTML="";
-
-  todos.forEach((x,i)=>{
-    t.innerHTML += `
-      <div class="todo-row">
-        <input type="checkbox" ${x.done?"checked":""} onchange="toggleTodo(${i})">
-        <div>${x.text}</div>
-        <button onclick="delTodo(${i})">X</button>
-      </div>
-    `;
-  });
 }
 
 /* SAVE */
 function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
-function saveTodos(){
-  localStorage.setItem("todos",JSON.stringify(todos));
-}
 
-/* TODO */
-function addTodo(){
-  const v=document.getElementById("todoInput").value;
-  if(!v)return;
-  todos.push({text:v,done:false});
-  saveTodos(); render();
-}
-
-function toggleTodo(i){
-  todos[i].done=!todos[i].done;
-  saveTodos(); render();
-}
-
-function delTodo(i){
-  todos.splice(i,1);
-  saveTodos(); render();
-}
-
+/* EDIT/DELETE */
 function editEvent(id){
-  const ev=events.find(e=>e.id===id);
+  const ev = events.find(e=>e.id===id);
+
   document.getElementById("name").value=ev.name;
   document.getElementById("date").value=new Date(ev.time).toISOString().split("T")[0];
   document.getElementById("time").value=new Date(ev.time).toTimeString().slice(0,5);
   document.getElementById("alarm").value=ev.alarm;
+
   editId=id;
 }
 
 function delEvent(id){
-  events=events.filter(e=>e.id!==id);
-  save(); render();
+  events = events.filter(e=>e.id!==id);
+  save();
+  render();
 }
 
 render();
