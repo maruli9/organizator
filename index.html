@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub PRO MAX v3.2</title>
+<title>Event Hub PRO MAX 4.1</title>
 
 <style>
 body{
@@ -21,31 +21,55 @@ body{
 
 .card{
   background:rgba(255,255,255,0.06);
-  padding:16px;
+  padding:14px;
   margin:12px 0;
-  border-radius:16px;
+  border-radius:14px;
 }
 
 input,select,button{
   width:100%;
-  padding:12px;
+  padding:10px;
   margin-top:8px;
   border-radius:10px;
   border:none;
-  font-size:16px;
+  font-size:15px;
 }
 
 button{
   background:#6c5ce7;
   color:white;
-  font-weight:bold;
+  font-weight:600;
 }
 
-.item{
-  padding:10px;
-  margin-top:8px;
+/* EVENT ROW (STABLE V4 STYLE) */
+.event-row{
+  display:grid;
+  grid-template-columns: 1.4fr 1fr 0.6fr 0.6fr;
+  gap:6px;
+  align-items:center;
+  padding:8px;
+  margin-top:6px;
   background:rgba(255,255,255,0.05);
   border-radius:10px;
+  font-size:13px;
+}
+
+/* TODO ROW */
+.todo-row{
+  display:grid;
+  grid-template-columns: 40px 1fr 50px;
+  gap:6px;
+  align-items:center;
+  padding:8px;
+  margin-top:6px;
+  background:rgba(255,255,255,0.05);
+  border-radius:10px;
+}
+
+/* WEATHER FIX */
+#weather{
+  font-size:18px;
+  font-weight:600;
 }
 </style>
 </head>
@@ -54,11 +78,11 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO MAX v3.2</h1>
+<h1>⚡ Event Hub PRO MAX 4.1</h1>
 
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
-<!-- WEATHER (FIXED - NEVER HANGS) -->
+<!-- WEATHER (FIXED + ISOLATED) -->
 <div class="card">
 <h2>🌦 Weather</h2>
 <div id="weather">Loading weather...</div>
@@ -73,10 +97,10 @@ button{
 <input id="time" type="time">
 
 <select id="alarm">
-  <option value="5">5 min before</option>
-  <option value="10">10 min before</option>
-  <option value="15" selected>15 min before</option>
-  <option value="30">30 min before</option>
+  <option value="5">5 min</option>
+  <option value="10">10 min</option>
+  <option value="15" selected>15 min</option>
+  <option value="30">30 min</option>
 </select>
 
 <button onclick="addEvent()">Add event</button>
@@ -89,7 +113,7 @@ button{
 <h2>📝 Todo</h2>
 
 <input id="todoInput" placeholder="Task">
-<button onclick="addTodo()">Add todo</button>
+<button onclick="addTodo()">Add</button>
 
 <div id="todos"></div>
 </div>
@@ -99,7 +123,7 @@ button{
 <script>
 
 /* =========================
-   STORAGE
+   DATA
 ========================= */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
@@ -113,30 +137,44 @@ async function enableNotifications(){
 }
 
 /* =========================
-   WEATHER FIX (NO HANG)
+   WEATHER (SAFE MODULE - NEVER BREAKS APP)
 ========================= */
 function initWeather(){
   const el = document.getElementById("weather");
 
   const fallback = { lat: 48.2082, lon: 16.3738 };
 
-  el.innerText = "🌦 Loading weather...";
+  let done = false;
 
-  const load = (lat, lon) => {
+  const timeout = setTimeout(()=>{
+    if(!done){
+      el.innerText = "🌦 Weather timeout (fallback)";
+      done = true;
+    }
+  }, 3500);
+
+  function load(lat, lon){
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
       .then(r => r.json())
       .then(d => {
-        if(!d.current_weather){
+        if(done) return;
+        clearTimeout(timeout);
+
+        if(d && d.current_weather){
+          el.innerText = "🌡 " + d.current_weather.temperature + "°C";
+        } else {
           el.innerText = "Weather unavailable";
-          return;
         }
 
-        el.innerText = "🌡 " + d.current_weather.temperature + "°C";
+        done = true;
       })
-      .catch(() => {
+      .catch(()=>{
+        if(done) return;
+        clearTimeout(timeout);
         el.innerText = "Weather error";
+        done = true;
       });
-  };
+  }
 
   if(!navigator.geolocation){
     load(fallback.lat, fallback.lon);
@@ -144,7 +182,7 @@ function initWeather(){
   }
 
   navigator.geolocation.getCurrentPosition(
-    p => load(p.coords.latitude, p.coords.longitude),
+    pos => load(pos.coords.latitude, pos.coords.longitude),
     () => load(fallback.lat, fallback.lon),
     { timeout: 3000 }
   );
@@ -206,7 +244,7 @@ function delTodo(i){
 }
 
 /* =========================
-   NOTIFICATION LOOP
+   LOOP
 ========================= */
 setInterval(()=>{
   const now = Date.now();
@@ -215,17 +253,14 @@ setInterval(()=>{
     const diff = ev.time - now;
 
     if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
-      if(Notification.permission === "granted"){
-        new Notification("⏰ Event",{
-          body: ev.name
-        });
+      if(Notification.permission==="granted"){
+        new Notification("⏰ Event", { body: ev.name });
       }
       ev.notified = true;
       save();
     }
   });
 
-  // auto remove past events
   events = events.filter(e => e.time > now - 60000);
   save();
 
@@ -245,11 +280,11 @@ function render(){
 
   events.forEach(ev=>{
     e.innerHTML += `
-      <div class="item">
-        <b>${ev.name}</b><br>
-        ${new Date(ev.time).toLocaleString()}<br>
-        ⏰ alarm: ${ev.alarm} min<br><br>
-        <button onclick="delEvent(${ev.id})">Delete</button>
+      <div class="event-row">
+        <div>${ev.name}</div>
+        <div>${new Date(ev.time).toLocaleDateString()}</div>
+        <div>${new Date(ev.time).toTimeString().slice(0,5)}</div>
+        <button onclick="delEvent(${ev.id})">X</button>
       </div>
     `;
   });
@@ -259,16 +294,19 @@ function render(){
 
   todos.forEach((x,i)=>{
     t.innerHTML += `
-      <div class="item">
+      <div class="todo-row">
         <input type="checkbox" ${x.done?"checked":""}
         onchange="toggleTodo(${i})">
-        <span style="text-decoration:${x.done?'line-through':'none'}">
+
+        <div style="text-decoration:${x.done?'line-through':'none'}">
           ${x.text}
-        </span>
+        </div>
+
         <button onclick="delTodo(${i})">X</button>
       </div>
     `;
   });
+
 }
 
 /* SAVE */
