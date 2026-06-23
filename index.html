@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Event Hub Pro FIX</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Hub PRO MAX</title>
 
 <style>
 body{
@@ -13,11 +13,7 @@ body{
   color:white;
 }
 
-.container{
-  max-width:720px;
-  margin:auto;
-  padding:16px;
-}
+.container{max-width:700px;margin:auto;padding:16px;}
 
 .card{
   background:rgba(255,255,255,0.06);
@@ -35,12 +31,7 @@ input,button{
   font-size:16px;
 }
 
-button{
-  background:#6c5ce7;
-  color:white;
-  font-weight:bold;
-  cursor:pointer;
-}
+button{background:#6c5ce7;color:white;font-weight:bold;}
 
 .item{
   padding:10px;
@@ -55,100 +46,128 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub Pro FIX</h1>
+<h1>⚡ Event Hub PRO MAX</h1>
 
-<button onclick="enableNotifications()">🔔 Enable notifications</button>
+<button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
-<!-- EVENTS -->
 <div class="card">
-<h2>📅 Events</h2>
+<h2>➕ Event</h2>
 
-<input id="name" placeholder="Event name"/>
-<input id="date" type="date"/>
-<input id="time" type="time"/>
+<input id="name" placeholder="Event name">
+<input id="date" type="date">
+<input id="time" type="time">
 <button onclick="addEvent()">Add event</button>
 
 <div id="events"></div>
 </div>
 
-<!-- TODO -->
 <div class="card">
 <h2>📝 Tasks</h2>
 
-<input id="todoInput" placeholder="Task"/>
+<input id="todo" placeholder="Task">
 <button onclick="addTodo()">Add</button>
 
 <div id="todos"></div>
-</div>
-
-<!-- WEATHER -->
-<div class="card">
-<h2>🌦 Weather</h2>
-<p id="weather">Loading...</p>
 </div>
 
 </div>
 
 <script>
 
-/* ======================
+/* =======================
    DATA
-====================== */
+======================= */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 
-/* ======================
+/* =======================
+   SW (PWA)
+======================= */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js');
+}
+
+/* =======================
    NOTIFICATIONS
-====================== */
-function enableNotifications(){
-  if(!("Notification" in window)){
-    alert("No notifications support");
-    return;
-  }
+======================= */
+async function enableNotifications(){
+  const perm = await Notification.requestPermission();
 
-  Notification.requestPermission().then(p=>{
-    alert("Permission: " + p);
-
-    if(p==="granted"){
-      new Notification("Event Hub Pro",{
+  if(perm === "granted"){
+    navigator.serviceWorker.ready.then(reg=>{
+      reg.showNotification("PRO MAX",{
         body:"Notifications enabled"
       });
-    }
-  });
+    });
+  }
 }
 
 function notify(title, body){
-  if(Notification.permission==="granted"){
-    new Notification(title,{body});
-  }
+  navigator.serviceWorker.ready.then(reg=>{
+    reg.showNotification(title,{body});
+  });
 }
 
-/* ======================
-   EVENTS (FIXED)
-====================== */
+/* =======================
+   EVENTS
+======================= */
 function addEvent(){
-  const name = document.getElementById("name").value;
+  const name = name = document.getElementById("name").value;
   const date = document.getElementById("date").value;
   const time = document.getElementById("time").value;
 
   if(!name || !date || !time) return;
 
+  const timeMs = new Date(`${date}T${time}`).getTime();
+
   events.push({
     id:Date.now(),
     name,
-    time:new Date(`${date}T${time}`).getTime(),
-    notified:false
+    time:timeMs,
+    notified15:false,
+    notified5:false
   });
 
-  saveEvents();
-  renderEvents();
+  save();
+  render();
 }
 
-function saveEvents(){
+function save(){
   localStorage.setItem("events",JSON.stringify(events));
 }
 
-function renderEvents(){
+/* =======================
+   LOOP (15m + 5m + NOW)
+======================= */
+setInterval(()=>{
+  const now = Date.now();
+
+  events.forEach(ev=>{
+    const diff = ev.time - now;
+
+    if(diff <= 15*60*1000 && !ev.notified15){
+      notify("⏰ 15 min", ev.name);
+      ev.notified15 = true;
+      save();
+    }
+
+    if(diff <= 5*60*1000 && !ev.notified5){
+      notify("🔥 5 min", ev.name);
+      ev.notified5 = true;
+      save();
+    }
+
+    if(diff <= 0){
+      notify("🚨 NOW", ev.name);
+    }
+  });
+
+},5000);
+
+/* =======================
+   RENDER
+======================= */
+function render(){
   const el = document.getElementById("events");
   el.innerHTML="";
 
@@ -158,132 +177,57 @@ function renderEvents(){
     el.innerHTML += `
       <div class="item">
         <b>${ev.name}</b><br>
-        <span id="t-${ev.id}"></span>
-        <button onclick="deleteEvent(${ev.id})">Delete</button>
+        ${new Date(ev.time).toLocaleString()}
+      </div>
+    `;
+  });
+
+  const t = document.getElementById("todos");
+  t.innerHTML="";
+
+  todos.forEach((x,i)=>{
+    t.innerHTML += `
+      <div class="item">
+        <input type="checkbox" ${x.done?"checked":""}
+        onchange="toggleTodo(${i})">
+        ${x.text}
+        <button onclick="delTodo(${i})">X</button>
       </div>
     `;
   });
 }
 
-function deleteEvent(id){
-  events = events.filter(e=>e.id!==id);
-  saveEvents();
-  renderEvents();
-}
-
-/* ======================
-   EVENT LOOP (FIXED)
-====================== */
-setInterval(()=>{
-  const now = Date.now();
-
-  events.forEach(ev=>{
-    const diff = ev.time - now;
-
-    const el = document.getElementById(`t-${ev.id}`);
-    if(el){
-      if(diff <= 0){
-        el.innerText = "🔥 NOW";
-      } else {
-        const m = Math.floor(diff/60000);
-        const h = Math.floor(m/60);
-        el.innerText = `${h}h ${m%60}m`;
-      }
-    }
-
-    // 15 min alert FIXED (no narrow window bug)
-    if(!ev.notified && diff <= 15*60*1000 && diff > 0){
-      notify("Event soon ⚡", ev.name + " starts in 15 minutes");
-      ev.notified = true;
-      saveEvents();
-    }
-  });
-
-},1000);
-
-/* ======================
-   TODO (FIXED)
-====================== */
+/* =======================
+   TODO
+======================= */
 function addTodo(){
-  const val = document.getElementById("todoInput").value;
-  if(!val) return;
+  const v = document.getElementById("todo").value;
+  if(!v) return;
 
-  todos.push({text:val,done:false});
-  document.getElementById("todoInput").value="";
+  todos.push({text:v,done:false});
+  document.getElementById("todo").value="";
   saveTodos();
-  renderTodos();
+  render();
 }
 
 function toggleTodo(i){
   todos[i].done=!todos[i].done;
   saveTodos();
-  renderTodos();
+  render();
 }
 
-function deleteTodo(i){
+function delTodo(i){
   todos.splice(i,1);
   saveTodos();
-  renderTodos();
+  render();
 }
 
 function saveTodos(){
   localStorage.setItem("todos",JSON.stringify(todos));
 }
 
-function renderTodos(){
-  const el = document.getElementById("todos");
-  el.innerHTML="";
-
-  todos.forEach((t,i)=>{
-    el.innerHTML += `
-      <div class="item">
-        <input type="checkbox" ${t.done?"checked":""}
-        onchange="toggleTodo(${i})">
-        ${t.text}
-        <button onclick="deleteTodo(${i})">X</button>
-      </div>
-    `;
-  });
-}
-
-/* ======================
-   WEATHER (FIXED - NO HANG)
-====================== */
-function loadWeather(lat,lon){
-  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
-  .then(r=>r.json())
-  .then(d=>{
-    document.getElementById("weather").innerText =
-      "🌡 " + d.current_weather.temperature + "°C";
-  })
-  .catch(()=>{
-    document.getElementById("weather").innerText="Weather error";
-  });
-}
-
-function initWeather(){
-  const fallback={lat:48.2082,lon:16.3738};
-
-  if(!navigator.geolocation){
-    loadWeather(fallback.lat,fallback.lon);
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    p=>loadWeather(p.coords.latitude,p.coords.longitude),
-    ()=>loadWeather(fallback.lat,fallback.lon),
-    {timeout:3000}
-  );
-}
-
-/* ======================
-   INIT
-====================== */
-window.onload=()=>{
-  renderEvents();
-  renderTodos();
-  initWeather();
-};
+/* INIT */
+render();
 
 </script>
 
