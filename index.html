@@ -165,16 +165,7 @@ const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
 let audioUnlocked = false;
 
-/* DODANE */
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) {
-    alarmSound.pause();
-    alarmSound.currentTime = 0;
-  }
-});
-
 window.addEventListener("load", ()=>{
-  isAlarmActive = false;
   alarmSound.pause();
   alarmSound.currentTime = 0;
 });
