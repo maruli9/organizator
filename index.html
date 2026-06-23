@@ -64,12 +64,7 @@ button{
   border-radius:10px;
 }
 
-.weather-box{
-  font-size:14px;
-  line-height:1.6;
-}
-
-/* 🔴 IOS SAFE ALARM UI */
+/* 🔴 ALARM SCREEN */
 #alarmBox{
   display:none;
   position:fixed;
@@ -82,6 +77,7 @@ button{
   text-align:center;
   padding-top:35%;
   font-size:28px;
+  animation: pulse 0.8s infinite;
 }
 
 #alarmBox button{
@@ -90,6 +86,12 @@ button{
   font-size:18px;
   background:white;
   color:black;
+}
+
+@keyframes pulse{
+  0%{transform:scale(1);}
+  50%{transform:scale(1.02);}
+  100%{transform:scale(1);}
 }
 </style>
 </head>
@@ -138,7 +140,7 @@ button{
 
 </div>
 
-<!-- 🔴 IOS SAFE ALARM OVERLAY -->
+<!-- 🔴 ALARM UI -->
 <div id="alarmBox">
   ⏰ EVENT ALARM<br><br>
   <div id="alarmText"></div>
@@ -155,7 +157,7 @@ let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 
 /* =========================
-   WEATHER
+   WEATHER (fixed cities)
 ========================= */
 function weather(){
   const el = document.getElementById("weather");
@@ -179,26 +181,61 @@ function weather(){
 }
 
 /* =========================
-   IOS SAFE ALARM SYSTEM
+   🔊 SMART AUDIO SYSTEM (iOS FIX)
 ========================= */
 const alarmSound = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 alarmSound.loop = true;
 
+let audioUnlocked = false;
+
+function unlockAudio(){
+  if(audioUnlocked) return;
+
+  alarmSound.play()
+    .then(()=>{
+      alarmSound.pause();
+      alarmSound.currentTime = 0;
+      audioUnlocked = true;
+      console.log("🔊 Audio unlocked");
+    })
+    .catch(()=>{});
+}
+
+// auto unlock on first interaction
+document.addEventListener("click", unlockAudio, { once:true });
+document.addEventListener("touchstart", unlockAudio, { once:true });
+
+/* =========================
+   ALARM SYSTEM
+========================= */
 function triggerAlarm(ev){
+
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display = "block";
 
-  alarmSound.play().catch(()=>{});
+  if(audioUnlocked){
+    alarmSound.currentTime = 0;
+    alarmSound.play().catch(()=>{});
+  }
 
   if(navigator.vibrate){
-    navigator.vibrate([300,200,300,200,300]);
+    navigator.vibrate([400,150,400,150,800]);
   }
+
+  document.body.style.overflow = "hidden";
 }
 
 function stopAlarm(){
   document.getElementById("alarmBox").style.display = "none";
+
   alarmSound.pause();
   alarmSound.currentTime = 0;
+
+  document.body.style.overflow = "";
+
+  if(navigator.vibrate){
+    navigator.vibrate(0);
+  }
 }
 
 /* =========================
@@ -279,7 +316,7 @@ function delTodo(i){
 }
 
 /* =========================
-   ALARM ENGINE (FIXED)
+   ALARM ENGINE
 ========================= */
 setInterval(()=>{
 
