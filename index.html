@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Event Countdown + Planner</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { font-family: Arial; background:#0f0f0f; color:white; margin:0; padding:20px; }
+.container { max-width:900px; margin:auto; }
+
+.card { background:#1c1c1c; padding:20px; border-radius:12px; margin-bottom:15px; }
+
+input, button {
+  padding:10px;
+  margin:5px;
+  border-radius:8px;
+  border:none;
+}
+
+button { cursor:pointer; }
+
+.todo-item { display:flex; justify-content:space-between; margin:5px 0; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📅 Event Planner</h1>
+
+<div class="card">
+<h2>Event</h2>
+<input id="eventName" placeholder="Event name"/>
+<input id="eventDate" type="date"/>
+<button onclick="saveEvent()">Save Event</button>
+
+<h3 id="countdown"></h3>
+</div>
+
+<div class="card">
+<h2>📝 Todo List</h2>
+<input id="todoInput" placeholder="Add task"/>
+<button onclick="addTodo()">Add</button>
+<div id="todoList"></div>
+</div>
+
+<div class="card">
+<h2>🌦 Weather</h2>
+<p id="weather">Loading...</p>
+<canvas id="chart"></canvas>
+</div>
+
+</div>
+
+<script>
+
+// ---------------- EVENT ----------------
+function saveEvent(){
+  localStorage.setItem("eventName", document.getElementById("eventName").value);
+  localStorage.setItem("eventDate", document.getElementById("eventDate").value);
+  updateCountdown();
+}
+
+function updateCountdown(){
+  const name = localStorage.getItem("eventName") || "Event";
+  const date = new Date(localStorage.getItem("eventDate"));
+
+  if(!date) return;
+
+  const now = new Date();
+  const diff = date - now;
+  const days = Math.ceil(diff / (1000*60*60*24));
+
+  document.getElementById("countdown").innerText =
+    `${name} in ${days} days`;
+}
+
+setInterval(updateCountdown, 1000);
+
+// ---------------- TODO ----------------
+let todos = JSON.parse(localStorage.getItem("todos") || "[]");
+
+function renderTodos(){
+  const list = document.getElementById("todoList");
+  list.innerHTML = "";
+
+  todos.forEach((t,i)=>{
+    const div = document.createElement("div");
+    div.className="todo-item";
+    div.innerHTML = `
+      <span>${t}</span>
+      <button onclick="removeTodo(${i})">X</button>
+    `;
+    list.appendChild(div);
+  });
+
+  localStorage.setItem("todos", JSON.stringify(todos));
+}
+
+function addTodo(){
+  const val = document.getElementById("todoInput").value;
+  if(val){
+    todos.push(val);
+    renderTodos();
+  }
+}
+
+function removeTodo(i){
+  todos.splice(i,1);
+  renderTodos();
+}
+
+renderTodos();
+
+// ---------------- WEATHER (mock API simple) ----------------
+const mockTemp = Array.from({length:10},()=>Math.floor(Math.random()*10+10));
+
+document.getElementById("weather").innerText =
+"Temp: 18°C | Pressure: 1015 hPa";
+
+new Chart(document.getElementById("chart"), {
+  type: "line",
+  data: {
+    labels: ["-5","-4","-3","-2","-1","Today","+1","+2","+3","+4"],
+    datasets: [{
+      label: "Temperature",
+      data: mockTemp,
+      borderColor: "cyan"
+    }]
+  }
+});
+
+</script>
+
+</body>
+</html>
