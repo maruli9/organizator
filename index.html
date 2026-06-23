@@ -209,22 +209,47 @@ function removeTodo(i){
 // start
 renderTodos();
 // ---------------- WEATHER ----------------
-const mockTemp = Array.from({length:10},()=>Math.floor(Math.random()*10+10));
+async function loadWeather() {
 
-document.getElementById("weather").innerText =
-"Temp: 18°C | Pressure: 1015 hPa";
+  // 1. GET LOCATION (iPhone / browser GPS)
+  navigator.geolocation.getCurrentPosition(async (pos) => {
 
-new Chart(document.getElementById("chart"), {
-  type: "line",
-  data: {
-    labels: ["-5","-4","-3","-2","-1","Today","+1","+2","+3","+4"],
-    datasets: [{
-      label: "Temperature",
-      data: mockTemp
-    }]
-  }
-});
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
 
+    // 2. CALL WEATHER API
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min&current_weather=true&timezone=auto`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    // 3. CURRENT WEATHER
+    const temp = data.current_weather.temperature;
+    const wind = data.current_weather.windspeed;
+
+    document.getElementById("weather").innerText =
+      `Now: ${temp}°C | Wind: ${wind} km/h`;
+
+    // 4. 5 DAY CHART
+    const labels = data.daily.time.slice(0,5);
+    const temps = data.daily.temperature_2m_max.slice(0,5);
+
+    new Chart(document.getElementById("chart"), {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "Max Temp (5 days)",
+          data: temps
+        }]
+      }
+    });
+
+  });
+
+}
+
+loadWeather();
 
 function enableNotifications() {
   if (!("Notification" in window)) {
