@@ -110,7 +110,7 @@ function saveEvent(){
   localStorage.setItem("eventName", name);
   localStorage.setItem("eventDate", date);
   localStorage.setItem("eventTime", time);
-
+document.getElementById("displayName").innerText = name;
   updateCountdown();
 }
 
@@ -159,6 +159,7 @@ function initEvent(){
 // START APP
 initEvent();
 setInterval(updateCountdown, 1000);
+window.addEventListener("load", initEvent);
 // ---------------- TODO ----------------
 // ---------------- TODO ----------------
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
@@ -213,54 +214,55 @@ renderTodos();
 // ---------------- WEATHER ----------------
 async function loadWeather() {
 
-  // fallback (jeśli user nie da GPS)
-  let lat = 48.2082;
-  let lon = 16.3738;
+  // zawsze pokaż coś od razu
+  document.getElementById("weather").innerText = "Loading weather...";
 
-  // próbuj GPS
+  const fallbackLat = 48.2082;
+  const fallbackLon = 16.3738;
+
+  const usePosition = (lat, lon) => fetchWeather(lat, lon);
+
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-
-      lat = pos.coords.latitude;
-      lon = pos.coords.longitude;
-
-      await fetchWeather(lat, lon);
-
-    }, async () => {
-
-      // jeśli user odmówił
-      await fetchWeather(lat, lon);
-
-    });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        usePosition(pos.coords.latitude, pos.coords.longitude);
+      },
+      () => {
+        // jak user odmówi → fallback
+        usePosition(fallbackLat, fallbackLon);
+      },
+      { timeout: 5000 } // 🔥 KLUCZ
+    );
   } else {
-    await fetchWeather(lat, lon);
+    usePosition(fallbackLat, fallbackLon);
   }
 }
 
 async function fetchWeather(lat, lon) {
 
-  const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max&timezone=auto`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max&timezone=auto`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
 
-  document.getElementById("weather").innerText =
-    `Now: ${data.current_weather.temperature}°C`;
+    document.getElementById("weather").innerText =
+      `Now: ${data.current_weather.temperature}°C`;
 
-  const temps = data.daily.temperature_2m_max.slice(0, 5);
-  const labels = data.daily.time.slice(0, 5);
+    const temps = data.daily.temperature_2m_max.slice(0, 5);
+    const labels = data.daily.time.slice(0, 5);
 
-  new Chart(document.getElementById("chart"), {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        label: "5 day temp",
-        data: temps
-      }]
-    }
-  });
+    new Chart(document.getElementById("chart"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{ label: "5 day temp", data: temps }]
+      }
+    });
+
+  } catch (e) {
+    document.getElementById("weather").innerText = "Weather error";
+  }
 }
 
 loadWeather();
