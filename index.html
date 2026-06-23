@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub PRO FIXED</title>
+<title>Event Hub STABLE FINAL</title>
 
 <style>
 body{
@@ -41,7 +41,7 @@ button{
   font-weight:600;
 }
 
-/* EVENT ROW = 1 LINE */
+/* EVENT ROW */
 .event-row{
   display:grid;
   grid-template-columns: 1.5fr 1fr 0.8fr 0.6fr 0.6fr;
@@ -54,7 +54,7 @@ button{
   font-size:13px;
 }
 
-/* TODO ROW */
+/* TODO */
 .todo-row{
   display:grid;
   grid-template-columns: 40px 1fr 50px;
@@ -67,9 +67,9 @@ button{
 }
 
 /* WEATHER */
-#weather{
-  font-size:18px;
-  font-weight:600;
+.weather-box{
+  font-size:14px;
+  line-height:1.6;
 }
 </style>
 </head>
@@ -78,11 +78,11 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO FIXED</h1>
+<h1>⚡ Event Hub STABLE FINAL</h1>
 
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
-<!-- WEATHER (SAFE MODULE) -->
+<!-- WEATHER -->
 <div class="card">
 <h2>🌦 Weather</h2>
 <div id="weather">Loading weather...</div>
@@ -123,79 +123,55 @@ button{
 <script>
 
 /* =========================
-   STORAGE
+   DATA
 ========================= */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
+let editId = null;
+
+/* =========================
+   WEATHER (2 CITIES FIXED)
+========================= */
+function weather(){
+
+  const el = document.getElementById("weather");
+
+  const vienna = fetch(
+    "https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true"
+  ).then(r=>r.json());
+
+  const dzw = fetch(
+    "https://api.open-meteo.com/v1/forecast?latitude=54.02&longitude=14.77&current_weather=true"
+  ).then(r=>r.json());
+
+  Promise.all([vienna,dzw])
+    .then(([v,d])=>{
+
+      const vTemp = v?.current_weather?.temperature;
+      const dTemp = d?.current_weather?.temperature;
+
+      el.innerHTML = `
+        🌍 Vienna (Essling): ${vTemp ?? "?"}°C<br>
+        🇵🇱 Dziwnów: ${dTemp ?? "?"}°C
+      `;
+    })
+    .catch(()=>{
+      el.innerText = "Weather error";
+    });
+}
 
 /* =========================
    NOTIFICATIONS
 ========================= */
 async function enableNotifications(){
-  const p = await Notification.requestPermission();
-  alert("Permission: " + p);
-}
-
-/* =========================
-   WEATHER (100% SAFE)
-========================= */
-function initWeather(){
-  const el = document.getElementById("weather");
-
-  const fallback = { lat: 48.2082, lon: 16.3738 };
-
-  let finished = false;
-
-  const failSafe = setTimeout(()=>{
-    if(!finished){
-      el.innerText = "🌦 Weather fallback (no response)";
-      finished = true;
-    }
-  }, 4000);
-
-  const load = (lat, lon)=>{
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
-      .then(r=>r.json())
-      .then(d=>{
-        if(finished) return;
-
-        clearTimeout(failSafe);
-
-        if(d && d.current_weather){
-          el.innerText = "🌡 " + d.current_weather.temperature + "°C";
-        } else {
-          el.innerText = "Weather unavailable";
-        }
-
-        finished = true;
-      })
-      .catch(()=>{
-        if(finished) return;
-
-        clearTimeout(failSafe);
-        el.innerText = "Weather error";
-        finished = true;
-      });
-  };
-
-  if(!navigator.geolocation){
-    load(fallback.lat, fallback.lon);
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    p=>load(p.coords.latitude, p.coords.longitude),
-    ()=>load(fallback.lat, fallback.lon),
-    { timeout: 3000 }
-  );
+  await Notification.requestPermission();
 }
 
 /* =========================
    EVENTS
 ========================= */
-let editId = null;
-
 function addEvent(){
+
   const name = document.getElementById("name").value;
   const date = document.getElementById("date").value;
   const time = document.getElementById("time").value;
@@ -226,12 +202,6 @@ function addEvent(){
   render();
 }
 
-function delEvent(id){
-  events = events.filter(e=>e.id!==id);
-  save();
-  render();
-}
-
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
@@ -241,6 +211,12 @@ function editEvent(id){
   document.getElementById("alarm").value = ev.alarm;
 
   editId = id;
+}
+
+function delEvent(id){
+  events = events.filter(e=>e.id!==id);
+  save();
+  render();
 }
 
 /* =========================
@@ -269,9 +245,10 @@ function delTodo(i){
 }
 
 /* =========================
-   LOOP (ALERTS)
+   ALARM ENGINE (FIXED)
 ========================= */
 setInterval(()=>{
+
   const now = Date.now();
 
   events.forEach(ev=>{
@@ -279,7 +256,9 @@ setInterval(()=>{
 
     if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
       if(Notification.permission==="granted"){
-        new Notification("⏰ Event", { body: ev.name });
+        new Notification("⏰ Event",{
+          body: ev.name
+        });
       }
       ev.notified = true;
       save();
@@ -345,7 +324,7 @@ function saveTodos(){
 
 /* INIT */
 render();
-initWeather();
+weather();
 
 </script>
 
