@@ -15,17 +15,27 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
 body {
   font-family: Arial;
   background:#0f0f0f;
   color:white;
-  margin:0;
-  padding:20px;
-  overflow: hidden;
-touch-action: none;
+
+  /* ważne dla iOS PWA */
+  -webkit-text-size-adjust: 100%;
 }
 
-.container { max-width:900px; margin:auto; }
+.container {
+  max-width:900px;
+  margin:auto;
+  padding:20px;
+  box-sizing: border-box;
+}
 
 .card {
   background:#1c1c1c;
@@ -41,7 +51,9 @@ input, button {
   border:none;
 }
 
-button { cursor:pointer; }
+button {
+  cursor:pointer;
+}
 
 .todo-item {
   display:flex;
