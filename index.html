@@ -1,279 +1,270 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Event Countdown + Planner</title>
-
-<link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Event">
-<link rel="apple-touch-icon" href="icon-512.png">
-<meta name="theme-color" content="#0f0f0f">
-
-<style>
-body {
-  margin: 0;
-  padding: 20px;
-  font-family: Arial;
-  background: #0f0f0f;
-  color: white;
-}
-
-.container {
-  max-width: 900px;
-  margin: auto;
-}
-
-.card {
-  background: #1c1c1c;
-  padding: 20px;
-  margin-bottom: 15px;
-  border-radius: 12px;
-}
-
-input, button {
-  padding: 10px;
-  margin: 5px;
-  border-radius: 8px;
-  border: none;
-}
-
-button { cursor: pointer; }
-
-.todo-item {
-  display: flex;
-  justify-content: space-between;
-  margin: 5px 0;
-}
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Event Hub Pro</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+  --bg:#0b0f1a;
+  --card:rgba(255,255,255,0.06);
+  --accent:#6c5ce7;
+  --text:#fff;
+}
+
+body{
+  margin:0;
+  font-family:system-ui;
+  background:radial-gradient(circle at top,#1a1f35,#0b0f1a);
+  color:var(--text);
+}
+
+.container{
+  max-width:720px;
+  margin:auto;
+  padding:18px;
+}
+
+h1{
+  font-size:28px;
+  margin-bottom:10px;
+}
+
+.card{
+  background:var(--card);
+  backdrop-filter: blur(12px);
+  border-radius:18px;
+  padding:16px;
+  margin:12px 0;
+  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+}
+
+input,button{
+  width:100%;
+  padding:14px;
+  margin-top:10px;
+  border-radius:12px;
+  border:none;
+  font-size:16px;
+}
+
+button{
+  background:var(--accent);
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.event{
+  padding:12px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.04);
+  margin-top:10px;
+}
+
+.small{
+  opacity:0.8;
+  font-size:14px;
+}
+</style>
 </head>
 
 <body>
 
 <div class="container">
 
-<h1>📅 Event Planner</h1>
+<h1>⚡ Event Hub Pro</h1>
 
-<button onclick="enableNotifications()">Enable Notifications</button>
+<button onclick="enableNotifications()">🔔 Enable notifications</button>
 
 <div class="card">
-<h2>Event</h2>
+<h2>➕ Add Event</h2>
 
-<input id="eventName" placeholder="Event name"/>
-<input id="eventDate" type="date"/>
-<input id="eventTime" type="time"/>
+<input id="name" placeholder="Event name"/>
+<input id="date" type="date"/>
+<input id="time" type="time"/>
 
-<button onclick="saveEvent()">Save Event</button>
-
-<h3 id="displayName"></h3>
-<p id="countdown"></p>
+<button onclick="addEvent()">Save event</button>
 </div>
 
 <div class="card">
-<h2>Todo</h2>
-<input id="todoInput" placeholder="Task"/>
-<button onclick="addTodo()">Add</button>
-<div id="todoList"></div>
+<h2>📅 Events</h2>
+<div id="events"></div>
 </div>
 
 <div class="card">
-<h2>Weather</h2>
+<h2>🌦 Weather</h2>
 <p id="weather">Loading...</p>
+<canvas id="chart"></canvas>
 </div>
 
 </div>
 
 <script>
 
-////////////////////////////////////////////////////
-// NOTIFICATIONS
-////////////////////////////////////////////////////
+let events = JSON.parse(localStorage.getItem("events") || "[]");
+let chartInstance = null;
+
+/* ---------------------------
+   NOTIFICATIONS
+----------------------------*/
 function enableNotifications(){
   if(!("Notification" in window)) return;
 
   Notification.requestPermission().then(p=>{
     if(p==="granted"){
-      new Notification("Notifications enabled 🔔");
-      localStorage.setItem("notif","true");
+      new Notification("Event Hub Pro",{
+        body:"Notifications enabled"
+      });
     }
   });
 }
 
-////////////////////////////////////////////////////
-// EVENT SYSTEM (STABLE)
-////////////////////////////////////////////////////
-function getEvent(){
-  return JSON.parse(localStorage.getItem("event"));
-}
-
-function saveEvent(){
-  const event = {
-    name: document.getElementById("eventName").value,
-    date: document.getElementById("eventDate").value,
-    time: document.getElementById("eventTime").value || "00:00"
-  };
-
-  localStorage.setItem("event", JSON.stringify(event));
-  renderEvent();
-}
-
-function renderEvent(){
-  const event = getEvent();
-
-  if(!event){
-    document.getElementById("countdown").innerText = "No event";
-    return;
+function notify(title, body){
+  if(Notification.permission === "granted"){
+    new Notification(title,{body});
   }
-
-  document.getElementById("eventName").value = event.name || "";
-  document.getElementById("eventDate").value = event.date || "";
-  document.getElementById("eventTime").value = event.time || "";
-
-  document.getElementById("displayName").innerText = event.name;
-
-  const eventTime = new Date(`${event.date}T${event.time}`);
-  const now = new Date();
-
-  const diff = eventTime - now;
-
-  if(diff <= 0){
-    document.getElementById("countdown").innerText = "🔥 NOW";
-    return;
-  }
-
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000)/3600000);
-  const minutes = Math.floor((diff % 3600000)/60000);
-
-  document.getElementById("countdown").innerText =
-    `${days}d ${hours}h ${minutes}m`;
 }
 
-////////////////////////////////////////////////////
-// TODO
-////////////////////////////////////////////////////
-let todos = JSON.parse(localStorage.getItem("todos") || "[]");
+/* ---------------------------
+   EVENTS
+----------------------------*/
+function addEvent(){
+  const name = document.getElementById("name").value;
+  const date = document.getElementById("date").value;
+  const time = document.getElementById("time").value;
 
-function renderTodos(){
-  const list = document.getElementById("todoList");
-  list.innerHTML = "";
+  if(!name || !date || !time) return;
 
-  todos.forEach((t,i)=>{
-    const div = document.createElement("div");
-    div.className = "todo-item";
+  const datetime = new Date(`${date}T${time}`).getTime();
 
-    div.innerHTML = `
-      <span>${t}</span>
-      <button onclick="removeTodo(${i})">X</button>
-    `;
-
-    list.appendChild(div);
+  events.push({
+    id:Date.now(),
+    name,
+    datetime,
+    notified:false
   });
 
-  localStorage.setItem("todos", JSON.stringify(todos));
+  save();
+  render();
 }
 
-function addTodo(){
-  const input = document.getElementById("todoInput");
-  if(input.value){
-    todos.push(input.value);
-    input.value = "";
-    renderTodos();
-  }
+function deleteEvent(id){
+  events = events.filter(e=>e.id!==id);
+  save();
+  render();
 }
 
-function removeTodo(i){
-  todos.splice(i,1);
-  renderTodos();
+function save(){
+  localStorage.setItem("events",JSON.stringify(events));
 }
 
-////////////////////////////////////////////////////
-// WEATHER (STABLE)
-////////////////////////////////////////////////////
-function loadWeather(){
-  const fallbackLat = 48.2082;
-  const fallbackLon = 16.3738;
+function render(){
+  const el = document.getElementById("events");
+  el.innerHTML="";
 
-  if(!navigator.geolocation){
-    fetchWeather(fallbackLat, fallbackLon);
-    return;
-  }
+  events.sort((a,b)=>a.datetime-b.datetime);
 
-  navigator.geolocation.getCurrentPosition(
-    (pos)=>fetchWeather(pos.coords.latitude, pos.coords.longitude),
-    ()=>fetchWeather(fallbackLat, fallbackLon),
-    {timeout:4000}
-  );
+  events.forEach(ev=>{
+    const div = document.createElement("div");
+    div.className="event";
+
+    div.innerHTML=`
+      <b>${ev.name}</b><br>
+      <span class="small">${new Date(ev.datetime).toLocaleString()}</span>
+      <p id="t-${ev.id}"></p>
+      <button onclick="deleteEvent(${ev.id})">Delete</button>
+    `;
+
+    el.appendChild(div);
+  });
 }
 
-async function fetchWeather(lat, lon){
-  try{
-    const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
-    );
+/* ---------------------------
+   TIMER ENGINE (CORE FIX)
+----------------------------*/
+setInterval(()=>{
+  const now = Date.now();
 
-    const data = await res.json();
+  events.forEach(ev=>{
+    const diff = ev.datetime - now;
+    const label = document.getElementById(`t-${ev.id}`);
+
+    if(label){
+      if(diff <= 0){
+        label.innerText = "🔥 NOW";
+      } else {
+        const min = Math.floor(diff/60000);
+        const hr = Math.floor(min/60);
+        label.innerText = `${hr}h ${min%60}m left`;
+      }
+    }
+
+    // 15 min alert
+    if(!ev.notified && diff <= 15*60*1000 && diff > 14*60*1000){
+      notify("Upcoming event ⚡", ev.name + " starts in 15 minutes");
+      ev.notified = true;
+      save();
+    }
+  });
+
+},1000);
+
+/* ---------------------------
+   WEATHER (FIXED)
+----------------------------*/
+function loadWeather(lat,lon){
+
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max&timezone=auto`;
+
+  fetch(url)
+  .then(r=>r.json())
+  .then(data=>{
 
     document.getElementById("weather").innerText =
       `Now: ${data.current_weather.temperature}°C`;
 
-  } catch(e){
-    document.getElementById("weather").innerText = "Weather error";
-  }
+    const labels = data.daily.time.slice(0,5);
+    const temps = data.daily.temperature_2m_max.slice(0,5);
+
+    if(chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(
+      document.getElementById("chart"),
+      {
+        type:"line",
+        data:{
+          labels,
+          datasets:[{
+            label:"Temp",
+            data:temps
+          }]
+        }
+      }
+    );
+  })
+  .catch(()=>{
+    document.getElementById("weather").innerText="Weather error";
+  });
 }
 
-////////////////////////////////////////////////////
-// ALARMS (SAFE)
-////////////////////////////////////////////////////
-let lastAlarm = "";
-
-function checkAlarms(){
-  if(localStorage.getItem("notif") !== "true") return;
-
-  const event = getEvent();
-  if(!event) return;
-
-  const eventTime = new Date(`${event.date}T${event.time}`);
-  const now = new Date();
-
-  const diff = eventTime - now;
-
-  const key = Math.floor(diff / 60000);
-  if(key === lastAlarm) return;
-  lastAlarm = key;
-
-  const day = 86400000;
-  const hour = 3600000;
-  const min15 = 900000;
-
-  if(diff > day - 60000 && diff < day + 60000){
-    new Notification("📅 Tomorrow: " + event.name);
-  }
-
-  if(diff > hour - 60000 && diff < hour + 60000){
-    new Notification("⏰ 1 hour: " + event.name);
-  }
-
-  if(diff > min15 - 60000 && diff < min15 + 60000){
-    new Notification("🔥 15 min: " + event.name);
-  }
+function initWeather(){
+  navigator.geolocation.getCurrentPosition(
+    p=>loadWeather(p.coords.latitude,p.coords.longitude),
+    ()=>loadWeather(48.2082,16.3738)
+  );
 }
 
-////////////////////////////////////////////////////
-// START APP
-////////////////////////////////////////////////////
-window.addEventListener("load", ()=>{
-  renderEvent();
-  renderTodos();
-  loadWeather();
-
-  setInterval(renderEvent, 1000);
-  setInterval(checkAlarms, 30000);
-});
+/* ---------------------------
+   INIT
+----------------------------*/
+window.onload=()=>{
+  render();
+  initWeather();
+};
 
 </script>
 
