@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub PRO MAX v5</title>
+<title>Event Hub PRO MAX v4</title>
 
 <style>
 body{
@@ -11,22 +11,21 @@ body{
   font-family:system-ui;
   background:#0b0f1a;
   color:white;
+  overflow-x:hidden;
 }
 
-/* FIX: stabilny layout */
+/* 🔒 FIX: stabilny layout */
 .container{
   max-width:720px;
   margin:auto;
   padding:16px;
-  display:flex;
-  flex-direction:column;
-  gap:12px;
 }
 
 /* cards */
 .card{
   background:rgba(255,255,255,0.06);
   padding:14px;
+  margin:12px 0;
   border-radius:14px;
 }
 
@@ -46,35 +45,40 @@ button{
   font-weight:600;
 }
 
-/* event row */
+/* =========================
+   EVENT ROW (FIX UI)
+========================= */
 .event-row{
   display:grid;
-  grid-template-columns: 1.4fr 1fr 0.6fr 0.6fr;
+  grid-template-columns: 1.5fr 1fr 0.8fr 0.6fr 0.6fr;
   gap:6px;
   align-items:center;
   padding:8px;
-  margin-top:6px;
+  margin-top:8px;
   background:rgba(255,255,255,0.05);
   border-radius:10px;
   font-size:13px;
 }
 
-/* todo row */
+/* =========================
+   TODO ROW (FIX UI)
+========================= */
 .todo-row{
   display:grid;
-  grid-template-columns: 40px 1fr 50px;
+  grid-template-columns: 40px 1fr 60px;
   gap:6px;
   align-items:center;
   padding:8px;
-  margin-top:6px;
+  margin-top:8px;
   background:rgba(255,255,255,0.05);
   border-radius:10px;
 }
 
-/* weather fix */
-#weather{
-  font-size:18px;
-  font-weight:600;
+/* buttons inside rows */
+.small-btn{
+  padding:6px;
+  font-size:12px;
+  border-radius:8px;
 }
 </style>
 </head>
@@ -83,7 +87,7 @@ button{
 
 <div class="container">
 
-<h1>⚡ Event Hub PRO MAX v5</h1>
+<h1>⚡ Event Hub PRO MAX v4</h1>
 
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
 
@@ -115,12 +119,6 @@ button{
 <button onclick="addTodo()">Add</button>
 
 <div id="todos"></div>
-</div>
-
-<!-- WEATHER (FIXED - ALWAYS VISIBLE) -->
-<div class="card">
-<h2>🌦 Weather</h2>
-<div id="weather">Loading weather...</div>
 </div>
 
 </div>
@@ -215,7 +213,7 @@ setInterval(()=>{
     }
   });
 
-  // auto remove past events
+  // auto remove past
   events = events.filter(e=>e.time > now - 60000);
   save();
 
@@ -224,10 +222,11 @@ setInterval(()=>{
 },3000);
 
 /* =========================
-   RENDER (NO FLICKER FIX)
+   RENDER (FIX UI GRID)
 ========================= */
 function render(){
 
+  /* EVENTS */
   const e = document.getElementById("events");
   e.innerHTML="";
 
@@ -238,12 +237,14 @@ function render(){
       <div class="event-row">
         <div>${ev.name}</div>
         <div>${new Date(ev.time).toLocaleDateString()}</div>
-        <div>${new Date(ev.time).toTimeString().slice(0,5)}</div>
-        <button onclick="delEvent(${ev.id})">X</button>
+        <div>${new Date(ev.time).toLocaleTimeString().slice(0,5)}</div>
+        <div>${ev.alarm}m</div>
+        <button class="small-btn" onclick="delEvent(${ev.id})">X</button>
       </div>
     `;
   });
 
+  /* TODOS */
   const t = document.getElementById("todos");
   t.innerHTML="";
 
@@ -251,13 +252,13 @@ function render(){
     t.innerHTML += `
       <div class="todo-row">
         <input type="checkbox" ${x.done?"checked":""}
-        onchange="toggleTodo(${i})">
+          onchange="toggleTodo(${i})">
 
         <div style="text-decoration:${x.done?'line-through':'none'}">
           ${x.text}
         </div>
 
-        <button onclick="delTodo(${i})">X</button>
+        <button class="small-btn" onclick="delTodo(${i})">X</button>
       </div>
     `;
   });
@@ -274,34 +275,8 @@ function saveTodos(){
   localStorage.setItem("todos",JSON.stringify(todos));
 }
 
-/* =========================
-   WEATHER (FIXED NO HANG)
-========================= */
-function loadWeather(lat,lon){
-  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
-  .then(r=>r.json())
-  .then(d=>{
-    document.getElementById("weather").innerText =
-      "🌡 " + d.current_weather.temperature + "°C";
-  })
-  .catch(()=>{
-    document.getElementById("weather").innerText="Weather error";
-  });
-}
-
-function initWeather(){
-  const fallback={lat:48.2082,lon:16.3738};
-
-  navigator.geolocation.getCurrentPosition(
-    p=>loadWeather(p.coords.latitude,p.coords.longitude),
-    ()=>loadWeather(fallback.lat,fallback.lon),
-    {timeout:3000}
-  );
-}
-
 /* INIT */
 render();
-initWeather();
 
 </script>
 
