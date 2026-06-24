@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub FIXED</title>
+<title>Event Hub FINAL FIX</title>
 
 <style>
 html, body {
@@ -14,7 +14,11 @@ html, body {
   font-family:system-ui;
 }
 
-.container{ max-width:720px; margin:auto; padding:16px; }
+.container{
+  max-width:720px;
+  margin:auto;
+  padding:16px;
+}
 
 .card{
   background:rgba(255,255,255,0.06);
@@ -31,7 +35,10 @@ input,select,button{
   border:none;
 }
 
-button{ background:#6c5ce7; color:white; }
+button{
+  background:#6c5ce7;
+  color:white;
+}
 
 .event-row{
   display:grid;
@@ -61,8 +68,12 @@ button{ background:#6c5ce7; color:white; }
   margin-top:6px;
 }
 
-.countdown{ font-size:12px; opacity:0.8; }
+.countdown{
+  font-size:12px;
+  opacity:0.8;
+}
 
+/* ALARM */
 #alarmBox{
   display:none;
   position:fixed;
@@ -130,10 +141,9 @@ button{ background:#6c5ce7; color:white; }
 /* DATA */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
-
 let editId = null;
 let isAlarmActive = false;
-let alarmLocked = false; // 🔥 ważne: blokuje spam alarmu
+
 
 /* WEATHER */
 function weather(){
@@ -151,112 +161,59 @@ function weather(){
   .catch(()=> el.innerText="Weather error");
 }
 
-/* NOTIFICATIONS FIX */
-async function enableNotifications(){
-  if(!("Notification" in window)){
-    alert("Brak wsparcia Notification API");
-    return;
-  }
+/* AUDIO */
+const alarmSound = new Audio("./alarm.mp3");
 
-  const perm = await Notification.requestPermission();
 
-  if(perm === "granted"){
-    new Notification("Notifications enabled ✅");
-  } else {
-    alert("Brak zgody na powiadomienia");
+alarmSound.loop = true;
+let audioUnlocked = false;
+
+window.addEventListener("load", ()=>{
+  alarmSound.pause();
+  alarmSound.currentTime = 0;
+});
+
+document.addEventListener("click", ()=>{
+  if(audioUnlocked) return;
+  alarmSound.play().then(()=>{
+    alarmSound.pause();
+    alarmSound.currentTime = 0;
+    audioUnlocked = true;
+  }).catch(()=>{});
+},{once:true});
+
+function startAlarmSound(){
+  if(audioUnlocked && isAlarmActive){
+    alarmSound.currentTime = 0;
+    alarmSound.play().catch(()=>{});
   }
 }
 
-/* AUDIO */
-const alarmSound = new Audio("./alarm.mp3");
-alarmSound.loop = true;
-
-/* USER GESTURE UNLOCK */
-document.addEventListener("click", ()=>{
-  alarmSound.play()
-    .then(()=> {
-      alarmSound.pause();
-      alarmSound.currentTime = 0;
-    })
-    .catch(()=>{});
-},{once:true});
+/* WATCHDOG FIX */
+setInterval(()=>{
+  if(isAlarmActive){
+    if(alarmSound.paused && audioUnlocked){
+      alarmSound.play().catch(()=>{});
+    }
+  }
+},2000);
 
 /* ALARM */
 function triggerAlarm(ev){
-
-  if(alarmLocked) return; // 🔥 blokada spamowania
-  alarmLocked = true;
-
   isAlarmActive = true;
 
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display="block";
 
-  alarmSound.currentTime = 0;
-  alarmSound.play().catch(()=>{});
-
-  if(Notification.permission === "granted"){
-    new Notification("⏰ Event: " + ev.name);
-  }
+  startAlarmSound();
 }
 
 function stopAlarm(){
   isAlarmActive = false;
-  alarmLocked = false;
-
   document.getElementById("alarmBox").style.display="none";
-
   alarmSound.pause();
   alarmSound.currentTime = 0;
 }
-
-/* ADD EVENT */
-function addEvent(){
-
-  const name = document.getElementById("name").value;
-  const dateVal = document.getElementById("date").value;
-  const timeVal = document.getElementById("time").value;
-
-  const t = new Date(`${dateVal}T${timeVal}`).getTime();
-  const alarm = parseInt(document.getElementById("alarm").value);
-
-  if(!name || !t) return;
-
-  events.push({
-    id:Date.now(),
-    name,
-    time:t,
-    alarm,
-    notified:false
-  });
-
-  save();
-  render();
-}
-
-/* MAIN LOOP FIX */
-setInterval(()=>{
-
-  const now = Date.now();
-
-  events.forEach(ev=>{
-
-    const diff = ev.time - now;
-
-    // 🔥 tylko jeśli NIE było już triggera
-    if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
-
-      triggerAlarm(ev);
-      ev.notified = true;
-    }
-  });
-
-  // usuń stare eventy
-  events = events.filter(e => e.time > now - 60000);
-
-  save();
-
-},2000);
 
 /* COUNTDOWN */
 function formatDiff(ms){
@@ -267,6 +224,66 @@ function formatDiff(ms){
   const d=Math.floor(ms/86400000);
   return `${d}d ${h}h ${m}m ${s}s`;
 }
+
+/* ADD EVENT */
+function addEvent(){
+  const name = document.getElementById("name").value;
+  const t = new Date(`${date.value}T${time.value}`).getTime();
+  const alarm = parseInt(document.getElementById("alarm").value);
+
+  if(!name || !t) return;
+
+  if(editId){
+    const ev = events.find(e=>e.id===editId);
+    Object.assign(ev,{name,time:t,alarm,notified:false});
+    editId=null;
+  } else {
+    events.push({
+      id:Date.now(),
+      name,
+      time:t,
+      alarm,
+      notified:false
+    });
+  }
+
+  save();
+  render();
+}
+
+/* LOOP */
+setTimeout(()=>{
+
+  setInterval(()=>{
+    const now = Date.now();
+
+    events.forEach(ev=>{
+      const diff = ev.time - now;
+
+      if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
+        triggerAlarm(ev);
+        ev.notified = true;
+      }
+    });
+
+    events = events.filter(e=>e.time > now);
+
+  },2000);
+
+},1500);
+
+/* COUNTDOWN LOOP */
+setInterval(()=>{
+  const now = Date.now();
+
+  events.forEach(ev=>{
+    const el = document.querySelectorAll(`[data-id="${ev.id}"]`);
+    el.forEach(e=>{
+      e.innerText = formatDiff(ev.time-now);
+    });
+  });
+
+},1000);
 
 /* RENDER */
 function render(){
@@ -281,7 +298,7 @@ function render(){
       <div class="next-event">
         ${ev.name}<br>
         ${new Date(ev.time).toLocaleString()}<br>
-        <div class="countdown"></div>
+        <div class="countdown" data-id="${ev.id}"></div>
       </div>
     `;
   });
@@ -294,7 +311,7 @@ function render(){
       <div class="event-row">
         <div>${ev.name}</div>
         <div>${new Date(ev.time).toLocaleDateString()}</div>
-        <div>${formatDiff(ev.time - Date.now())}</div>
+        <div data-id="${ev.id}"></div>
         <button onclick="editEvent(${ev.id})">Edit</button>
         <button onclick="delEvent(${ev.id})">X</button>
       </div>
@@ -352,10 +369,10 @@ function saveTodos(){
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
-  document.getElementById("name").value=ev.name;
-  document.getElementById("date").value=new Date(ev.time).toISOString().split("T")[0];
-  document.getElementById("time").value=new Date(ev.time).toTimeString().slice(0,5);
-  document.getElementById("alarm").value=ev.alarm;
+  name.value=ev.name;
+  date.value=new Date(ev.time).toISOString().split("T")[0];
+  time.value=new Date(ev.time).toTimeString().slice(0,5);
+  alarm.value=ev.alarm;
 
   editId=id;
 }
