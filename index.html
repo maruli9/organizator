@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub STABLE</title>
+<title>Event Hub FIXED</title>
 
 <style>
 html, body {
@@ -15,35 +15,24 @@ html, body {
 }
 .container{ max-width:720px; margin:auto; padding:16px; }
 .card{ background:rgba(255,255,255,0.06); padding:14px; margin:12px 0; border-radius:14px; }
-
-input,select,button{
-  width:100%;
-  padding:10px;
-  margin-top:8px;
-  border-radius:10px;
-  border:none;
-}
-
+input,select,button{ width:100%; padding:10px; margin-top:8px; border-radius:10px; border:none; }
 button{ background:#6c5ce7; color:white; }
 
 .event-row{
   display:grid;
   grid-template-columns: 1.2fr 1fr 1fr 0.6fr 0.6fr;
-  gap:6px;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
-  border-radius:10px;
-  font-size:13px;
+  gap:6px; padding:8px; margin-top:6px;
+  background:rgba(255,255,255,0.05); border-radius:10px; font-size:13px;
 }
-
+.todo-row{
+  display:grid;
+  grid-template-columns: 40px 1fr 50px;
+  gap:6px; padding:8px; margin-top:6px;
+  background:rgba(255,255,255,0.05); border-radius:10px;
+}
 .next-event{
-  background:#1e272e;
-  padding:10px;
-  border-radius:10px;
-  margin-top:6px;
+  background:#1e272e; padding:10px; border-radius:10px; margin-top:6px;
 }
-
 .countdown{ font-size:12px; opacity:0.8; }
 
 #alarmBox{
@@ -66,7 +55,7 @@ button{ background:#6c5ce7; color:white; }
 <h1>⏰ NEXT EVENTS</h1>
 <div id="nextEvents"></div>
 
-<button onclick="enableNotifications()">🔔 Enable Notifications</button>
+<button onclick="enableAudio()">🔔 Enable Sound</button>
 
 <div class="card">
 <h2>📅 Events</h2>
@@ -100,39 +89,29 @@ let events = JSON.parse(localStorage.getItem("events") || "[]");
 let editId = null;
 let isAlarmActive = false;
 
-/* 🔥 FIX: zabezpieczenie po reloadzie */
-events.forEach(e=>{
-  if(e.time < Date.now()) e.notified = true;
-});
-
 /* AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
 let audioUnlocked = false;
 
-/* unlock audio */
-document.addEventListener("click", ()=>{
-  if(audioUnlocked) return;
-
+function enableAudio(){
   alarmSound.play().then(()=>{
     alarmSound.pause();
     alarmSound.currentTime = 0;
     audioUnlocked = true;
   }).catch(()=>{});
-}, {once:true});
-
-/* NOTIFICATIONS */
-function enableNotifications(){
-  if(!("Notification" in window)){
-    alert("Brak wsparcia");
-    return;
-  }
-  Notification.requestPermission();
 }
+
+/* RESET przy starcie */
+window.addEventListener("load", ()=>{
+  alarmSound.pause();
+  alarmSound.currentTime = 0;
+  isAlarmActive = false;
+});
 
 /* ALARM */
 function triggerAlarm(ev){
-  if(isAlarmActive) return;
+  if(isAlarmActive) return; // 🔥 blokada wielokrotnego odpalenia
 
   isAlarmActive = true;
 
@@ -143,15 +122,8 @@ function triggerAlarm(ev){
     alarmSound.currentTime = 0;
     alarmSound.play().catch(()=>{});
   }
-
-  if(Notification.permission === "granted"){
-    new Notification("⏰ Event", {
-      body: ev.name
-    });
-  }
 }
 
-/* STOP */
 function stopAlarm(){
   isAlarmActive = false;
   document.getElementById("alarmBox").style.display="none";
@@ -159,7 +131,7 @@ function stopAlarm(){
   alarmSound.currentTime = 0;
 }
 
-/* MAIN LOOP */
+/* LOOP */
 setInterval(()=>{
   const now = Date.now();
 
@@ -169,7 +141,7 @@ setInterval(()=>{
     if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
       triggerAlarm(ev);
       ev.notified = true;
-      save();
+      save(); // 🔥 KLUCZ
     }
   });
 
@@ -179,28 +151,24 @@ setInterval(()=>{
 },2000);
 
 /* COUNTDOWN */
-setInterval(()=>{
-  const now = Date.now();
-
-  events.forEach(ev=>{
-    document.querySelectorAll(`[data-id="${ev.id}"]`)
-      .forEach(el=>{
-        el.innerText = formatDiff(ev.time - now);
-      });
-  });
-
-},1000);
-
 function formatDiff(ms){
-  if(ms <= 0) return "TERAZ";
-  const s = Math.floor(ms/1000)%60;
-  const m = Math.floor(ms/60000)%60;
-  const h = Math.floor(ms/3600000)%24;
-  const d = Math.floor(ms/86400000);
+  if(ms<=0) return "TERAZ";
+  const s=Math.floor(ms/1000)%60;
+  const m=Math.floor(ms/60000)%60;
+  const h=Math.floor(ms/3600000)%24;
+  const d=Math.floor(ms/86400000);
   return `${d}d ${h}h ${m}m ${s}s`;
 }
 
-/* ADD */
+setInterval(()=>{
+  const now = Date.now();
+  events.forEach(ev=>{
+    document.querySelectorAll(`[data-id="${ev.id}"]`)
+      .forEach(e=> e.innerText = formatDiff(ev.time-now));
+  });
+},1000);
+
+/* ADD EVENT */
 function addEvent(){
   const name = document.getElementById("name").value;
   const t = new Date(`${date.value}T${time.value}`).getTime();
@@ -228,6 +196,7 @@ function addEvent(){
 
 /* RENDER */
 function render(){
+
   events.sort((a,b)=>a.time-b.time);
 
   const next = document.getElementById("nextEvents");
@@ -261,22 +230,22 @@ function render(){
 
 /* SAVE */
 function save(){
-  localStorage.setItem("events", JSON.stringify(events));
+  localStorage.setItem("events",JSON.stringify(events));
 }
 
-/* EDIT */
+/* EDIT/DELETE */
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
-  name.value = ev.name;
-  date.value = new Date(ev.time).toISOString().split("T")[0];
-  time.value = new Date(ev.time).toTimeString().slice(0,5);
-  alarm.value = ev.alarm;
+  name.value=ev.name;
+  date.value=new Date(ev.time).toISOString().split("T")[0];
+  time.value=new Date(ev.time).toTimeString().slice(0,5);
+  alarm.value=ev.alarm;
 
-  editId = id;
+  editId=id;
 }
 
-/* DELETE */
+
 function delEvent(id){
   events = events.filter(e=>e.id!==id);
   save();
@@ -287,5 +256,6 @@ function delEvent(id){
 render();
 
 </script>
+
 </body>
 </html>
