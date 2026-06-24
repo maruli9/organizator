@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guitar Discipline System</title>
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#0b0f1a;
+  color:white;
+}
+
+.container{
+  max-width:700px;
+  margin:auto;
+  padding:16px;
+}
+
+.card{
+  background:rgba(255,255,255,0.06);
+  padding:14px;
+  margin:12px 0;
+  border-radius:12px;
+}
+
+button{
+  width:100%;
+  padding:12px;
+  margin-top:8px;
+  border:none;
+  border-radius:10px;
+  background:#6c5ce7;
+  color:white;
+  font-size:15px;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  margin-top:8px;
+  border-radius:10px;
+  border:none;
+}
+
+/* STATES */
+.active{
+  background:#e17055 !important;
+}
+
+.done{
+  background:#00b894 !important;
+}
+
+.warning{
+  background:#d63031 !important;
+}
+</style>
+</head>
+
+<body>
+
+<!-- MAIN PAGE -->
+<div id="main" class="container">
+
+<h1>⚡ SYSTEM RYTMU DNIA</h1>
+
+<div class="card">
+<h2>🎯 Twoja misja</h2>
+<div id="mission">Utrzymaj streak ćwiczeń</div>
+</div>
+
+<div class="card">
+<h2>🔥 Streak</h2>
+<div id="streak">0 dni</div>
+</div>
+
+<button onclick="openGuitar()">🎸 Sesje gitarowe</button>
+
+</div>
+
+<!-- GUITAR PANEL -->
+<div id="guitar" class="container" style="display:none;">
+
+<h1>🎸 Gitara – trening</h1>
+
+<button onclick="location.href='index.html'">
+⬅ Powrót do strony głównej
+</button>
+
+<div class="card">
+<h2>📊 Status</h2>
+<div id="status">IDLE</div>
+<div id="countdown"></div>
+</div>
+
+<div class="card">
+<h2>🎯 Aktualna sesja</h2>
+<div id="session"></div>
+</div>
+
+<div class="card">
+<h2>▶ Kontrola</h2>
+<button onclick="startSession()">START</button>
+<button onclick="completeSession()">DONE</button>
+<button onclick="missSession()">POMIŃ</button>
+</div>
+
+<div class="card">
+<h2>📈 Feedback</h2>
+<div id="feedback"></div>
+</div>
+
+<div class="card">
+<h2>🎼 Generator ćwiczeń</h2>
+<input id="piece" placeholder="np. Bach Bourree">
+<button onclick="generate()">Generuj ćwiczenia</button>
+<div id="gen"></div>
+</div>
+
+</div>
+
+<script>
+
+/* STATE */
+let state = JSON.parse(localStorage.getItem("guitarSystem") || "{}");
+
+if(!state.streak){
+  state = {
+    streak:0,
+    level:1,
+    lastSession:0,
+    reminder:1,
+    status:"idle"
+  };
+}
+
+/* UI */
+function updateUI(){
+  document.getElementById("streak").innerText = state.streak + " dni";
+  document.getElementById("status").innerText = state.status;
+}
+
+/* NAV */
+function openGuitar(){
+  main.style.display="none";
+  guitar.style.display="block";
+  loadSession();
+}
+
+function goBack(){
+  main.style.display="block";
+  guitar.style.display="none";
+}
+
+/* SESSION LOGIC */
+let sessionPlan = [];
+
+function loadSession(){
+
+  sessionPlan = [
+    "Rozgrzewka (5 min) – chromatyka",
+    "Skale (10 min) – Segovia",
+    "Arpeggia (10 min) – Giuliani",
+    "Utwór (20 min)",
+    "Czytanie nut (5 min)"
+  ];
+
+  document.getElementById("session").innerHTML =
+    sessionPlan.map(s=> "• "+s).join("<br>");
+}
+
+/* START */
+function startSession(){
+  state.status = "active";
+  state.startTime = Date.now();
+  save();
+  updateUI();
+}
+
+/* COMPLETE */
+function completeSession(){
+
+  const today = new Date().toDateString();
+  const last = new Date(state.lastSession).toDateString();
+
+  if(today !== last){
+    state.streak++;
+    state.lastSession = Date.now();
+  }
+
+  state.status = "done";
+
+  if(state.streak % 5 === 0){
+    document.getElementById("feedback").innerText =
+      "🎯 EGZAMIN: nagraj wykonanie utworu!";
+  } else {
+    document.getElementById("feedback").innerText =
+      "✔ dobra robota – kontynuuj rytm";
+  }
+
+  save();
+  updateUI();
+}
+
+/* MISS */
+function missSession(){
+  state.status = "missed";
+
+  state.reminder++;
+
+  document.getElementById("feedback").innerText =
+    "⚠ przerwałeś rytm – następna sesja ważniejsza";
+
+  save();
+  updateUI();
+}
+
+/* GENERATOR */
+function generate(){
+  const piece = document.getElementById("piece").value.toLowerCase();
+
+  let result = "";
+
+  if(piece.includes("bach")){
+    result = "✔ artykulacja\n✔ kontrola głosu\n✔ legato";
+  }
+  else if(piece.includes("tarrega")){
+    result = "✔ vibrato\n✔ frazowanie\n✔ dynamika";
+  }
+  else{
+    result = "✔ rytm\n✔ czystość\n✔ tempo";
+  }
+
+  document.getElementById("gen").innerText = result;
+}
+
+/* SYSTEM RYTMU */
+setInterval(()=>{
+
+  const now = Date.now();
+  const diff = now - (state.lastSession || 0);
+
+  const hours = diff / (1000*60*60);
+
+  if(hours > 24){
+    state.status = "warning";
+    document.getElementById("feedback").innerText =
+      "⏰ minęło 24h – wróć do rytmu!";
+  }
+
+  if(hours > 48){
+    state.streak = 0;
+    document.getElementById("feedback").innerText =
+      "❌ streak reset – zaczynasz od nowa";
+  }
+
+  save();
+  updateUI();
+
+},5000);
+
+/* SAVE */
+function save(){
+  localStorage.setItem("guitarSystem", JSON.stringify(state));
+}
+
+/* INIT */
+updateUI();
+
+</script>
+
+</body>
+</html>
