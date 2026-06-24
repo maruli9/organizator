@@ -144,7 +144,7 @@ let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 let isAlarmActive = false;
 
-/* 🔥 FIX: system lock */
+/* FIX */
 let systemArmed = false;
 
 /* WEATHER */
@@ -166,12 +166,8 @@ function weather(){
 /* AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
 alarmSound.loop = true;
-let audioUnlocked = false;
 
-window.addEventListener("load", ()=>{
-  alarmSound.pause();
-  alarmSound.currentTime = 0;
-});
+let audioUnlocked = false;
 
 document.addEventListener("click", ()=>{
   if(audioUnlocked) return;
@@ -182,22 +178,6 @@ document.addEventListener("click", ()=>{
   }).catch(()=>{});
 },{once:true});
 
-function startAlarmSound(){
-  if(audioUnlocked && isAlarmActive){
-    alarmSound.currentTime = 0;
-    alarmSound.play().catch(()=>{});
-  }
-}
-
-/* WATCHDOG FIX */
-setInterval(()=>{
-  if(isAlarmActive){
-    if(alarmSound.paused && audioUnlocked){
-      alarmSound.play().catch(()=>{});
-    }
-  }
-},2000);
-
 /* ALARM */
 function triggerAlarm(ev){
   isAlarmActive = true;
@@ -205,7 +185,10 @@ function triggerAlarm(ev){
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display="block";
 
-  startAlarmSound();
+  if(audioUnlocked){
+    alarmSound.currentTime = 0;
+    alarmSound.play().catch(()=>{});
+  }
 }
 
 function stopAlarm(){
@@ -215,14 +198,15 @@ function stopAlarm(){
   alarmSound.currentTime = 0;
 }
 
-/* COUNTDOWN */
-function formatDiff(ms){
-  if(ms<=0) return "TERAZ";
-  const s=Math.floor(ms/1000)%60;
-  const m=Math.floor(ms/60000)%60;
-  const h=Math.floor(ms/3600000)%24;
-  const d=Math.floor(ms/86400000);
-  return `${d}d ${h}h ${m}m ${s}s`;
+/* ENABLE BUTTON */
+function enableNotifications(){
+  systemArmed = true;
+
+  if("Notification" in window){
+    Notification.requestPermission();
+  }
+
+  alert("Notifications enabled");
 }
 
 /* ADD EVENT */
@@ -235,7 +219,13 @@ function addEvent(){
 
   if(editId){
     const ev = events.find(e=>e.id===editId);
-    Object.assign(ev,{name,time:t,alarm,notified:false});
+    Object.assign(ev,{
+      name,
+      time:t,
+      alarm,
+      notified:false,
+      armed:false
+    });
     editId=null;
   } else {
     events.push({
@@ -243,7 +233,8 @@ function addEvent(){
       name,
       time:t,
       alarm,
-      notified:false
+      notified:false,
+      armed:false
     });
   }
 
@@ -251,48 +242,55 @@ function addEvent(){
   render();
 }
 
-/* LOOP */
-setTimeout(()=>{
-
-  setInterval(()=>{
-    const now = Date.now();
-
-    events.forEach(ev=>{
-      const diff = ev.time - now;
-
-      /* 🔥 FIX: system must be armed */
-      if(systemArmed && !ev.notified && diff <= ev.alarm*60000 && diff > 0){
-        triggerAlarm(ev);
-        ev.notified = true;
-      }
-    });
-
-    events = events.filter(e=>e.time > now);
-
-  },2000);
-
-},1500);
-
-/* COUNTDOWN LOOP */
+/* MAIN LOOP */
 setInterval(()=>{
   const now = Date.now();
 
   events.forEach(ev=>{
-    const el = document.querySelectorAll(`[data-id="${ev.id}"]`);
-    el.forEach(e=>{
-      e.innerText = formatDiff(ev.time-now);
+    const diff = ev.time - now;
+
+    if(systemArmed && !ev.armed){
+      ev.armed = true;
+    }
+
+    if(ev.armed && !ev.notified && diff <= ev.alarm*60000 && diff > 0){
+      triggerAlarm(ev);
+      ev.notified = true;
+    }
+  });
+
+  events = events.filter(e=>e.time > now);
+
+},2000);
+
+/* COUNTDOWN */
+setInterval(()=>{
+  const now = Date.now();
+
+  events.forEach(ev=>{
+    document.querySelectorAll(`[data-id="${ev.id}"]`).forEach(el=>{
+      el.innerText = formatDiff(ev.time - now);
     });
   });
 
 },1000);
 
+function formatDiff(ms){
+  if(ms<=0) return "TERAZ";
+  const s=Math.floor(ms/1000)%60;
+  const m=Math.floor(ms/60000)%60;
+  const h=Math.floor(ms/3600000)%24;
+  const d=Math.floor(ms/86400000);
+  return `${d}d ${h}h ${m}m ${s}s`;
+}
+
 /* RENDER */
 function render(){
 
-  events.sort((a,b)=>a.time-b.time);
-
   const next = document.getElementById("nextEvents");
   next.innerHTML="";
+
+  events.sort((a,b)=>a.time-b.time);
 
   events.slice(0,3).forEach(ev=>{
     next.innerHTML += `
@@ -366,7 +364,7 @@ function saveTodos(){
   localStorage.setItem("todos",JSON.stringify(todos));
 }
 
-/* EDIT/DELETE */
+/* EDIT */
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
@@ -382,17 +380,6 @@ function delEvent(id){
   events = events.filter(e=>e.id!==id);
   save();
   render();
-}
-
-/* 🔥 FIXED NOTIFICATIONS BUTTON */
-function enableNotifications() {
-  systemArmed = true;
-
-  if ("Notification" in window) {
-    Notification.requestPermission();
-  }
-
-  alert("Notifications enabled");
 }
 
 /* INIT */
