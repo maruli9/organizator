@@ -1,99 +1,145 @@
 <!DOCTYPE html>
+
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub CLEAN</title>
+<title>EventHub SaaS</title>
 
 <style>
-html, body {
+body{
   margin:0;
-  padding:0;
-  background:#0b0f1a;
-  color:white;
   font-family:system-ui;
+  background:linear-gradient(135deg,#0b0f1a,#1a1f3a);
+  color:white;
 }
+
 .container{
   max-width:720px;
   margin:auto;
   padding:16px;
 }
-.card{
-  background:rgba(255,255,255,0.06);
-  padding:14px;
-  margin:12px 0;
-  border-radius:14px;
+
+/* HEADER */
+h1{
+  font-size:22px;
+  opacity:0.9;
 }
-input,select,button{
+
+/* CARD */
+.card{
+  background:rgba(255,255,255,0.08);
+  backdrop-filter:blur(12px);
+  padding:16px;
+  margin:14px 0;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.08);
+  transition:.25s;
+}
+
+.card:hover{
+  transform:translateY(-2px);
+}
+
+/* INPUT */
+input,select{
   width:100%;
   padding:10px;
   margin-top:8px;
   border-radius:10px;
   border:none;
-}
-button{
-  background:#6c5ce7;
+  background:rgba(255,255,255,0.08);
   color:white;
 }
-.event-row{
-  display:grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
-  align-items:center;
-  gap:6px;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
+
+button{
+  width:100%;
+  padding:10px;
+  margin-top:10px;
   border-radius:10px;
+  border:none;
+  background:#6c5ce7;
+  color:white;
+  cursor:pointer;
+  transition:.2s;
+}
+
+button:hover{
+  background:#7d6cff;
+}
+
+/* EVENT CARD */
+.event-card{
+  background:rgba(255,255,255,0.06);
+  padding:12px;
+  border-radius:12px;
+  margin-top:10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.event-info{
   font-size:13px;
 }
-.event-row div:first-child{
-  font-weight:600;
+
+.event-actions{
+  display:flex;
+  gap:8px;
 }
-.todo-row{
-  display:grid;
-  grid-template-columns: 40px 1fr 50px;
-  gap:6px;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
-  border-radius:10px;
+
+.icon-btn{
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,0.08);
+  cursor:pointer;
 }
+
+.icon-btn:hover{
+  background:rgba(255,255,255,0.2);
+}
+
+/* NEXT */
 .next-event{
-  background: linear-gradient(135deg, #6c5ce7, #4834d4);
+  background:linear-gradient(135deg,#6c5ce7,#4834d4);
   padding:12px;
   border-radius:12px;
   margin-top:8px;
-  box-shadow: 0 4px 20px rgba(108,92,231,0.4);
 }
-.countdown{
-  font-size:12px;
-  opacity:0.8;
+
+/* TODO */
+.todo-row{
+  display:flex;
+  justify-content:space-between;
+  margin-top:8px;
+  background:rgba(255,255,255,0.06);
+  padding:10px;
+  border-radius:10px;
 }
+
 #alarmBox{
   display:none;
   position:fixed;
   inset:0;
-  background: radial-gradient(circle, #ff0000, #7a0000);
-  animation: pulse 1s infinite;
-  z-index:9999;
+  background:red;
   text-align:center;
   padding-top:35%;
-  font-size:30px;
-}
-
-@keyframes pulse{
-  0%{opacity:1;}
-  50%{opacity:0.6;}
-  100%{opacity:1;}
+  font-size:28px;
 }
 </style>
+
 </head>
 
 <body>
 
 <div class="container">
 
-<h1>⏰ NEXT EVENTS</h1>
+<h1>🚀 EventHub</h1>
+
 <div id="nextEvents"></div>
 
 <div class="card">
@@ -102,20 +148,21 @@ button{
 </div>
 
 <div class="card">
-<h2>📅 Events</h2>
+<h2>📅 Add / Edit Event</h2>
 
 <input id="name" placeholder="Event name">
 <input id="date" type="date">
 <input id="time" type="time">
 
 <select id="alarm">
-  <option value="5">5 min</option>
-  <option value="10">10 min</option>
-  <option value="15" selected>15 min</option>
+<option value="5">5 min</option>
+<option value="10">10 min</option>
+<option value="15">15 min</option>
 </select>
 
-<button onclick="addEvent()">Add event</button>
-<div id="events"></div>
+<button onclick="addEvent()">Save event</button>
+
+<div id="eventList"></div>
 </div>
 
 <div class="card">
@@ -123,6 +170,7 @@ button{
 
 <input id="todoInput" placeholder="Task">
 <button onclick="addTodo()">Add</button>
+
 <div id="todos"></div>
 </div>
 
@@ -136,137 +184,66 @@ button{
 
 <script>
 
-/* DATA */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
-let isAlarmActive = false;
-
-/* 🔥 USUŃ STARE EVENTY JUŻ NA STARCIE */
-function cleanupOnLoad(){
-  const now = Date.now();
-  const filtered = events.filter(e => e.time > now);
-
-  if(filtered.length !== events.length){
-    events = filtered;
-    save();
-  }
-}
-cleanupOnLoad();
 
 /* WEATHER */
 function weather(){
-  const el = document.getElementById("weather");
-
-  Promise.all([
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true").then(r=>r.json()),
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=54.02&longitude=14.77&current_weather=true").then(r=>r.json())
-  ])
-  .then(([v,d])=>{
-    el.innerHTML =
-    `🌍 Vienna: ${v?.current_weather?.temperature ?? "?"}°C<br>
-     🇵🇱 Dziwnów: ${d?.current_weather?.temperature ?? "?"}°C`;
-  })
-  .catch(()=> el.innerText="Weather error");
+  fetch("https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true")
+  .then(r=>r.json())
+  .then(d=>{
+    document.getElementById("weather").innerText =
+    "Vienna: " + d.current_weather.temperature + "°C";
+  });
 }
 
-/* AUDIO */
-const alarmSound = new Audio("./alarm2.mp3");
-alarmSound.loop = true;
-let audioUnlocked = false;
-
-document.addEventListener("click", ()=>{
-  if(audioUnlocked) return;
-  alarmSound.play().then(()=>{
-    alarmSound.pause();
-    alarmSound.currentTime = 0;
-    audioUnlocked = true;
-  }).catch(()=>{});
-},{once:true});
-
-/* ALARM */
-function triggerAlarm(ev){
-  isAlarmActive = true;
-  document.getElementById("alarmText").innerText = ev.name;
-  document.getElementById("alarmBox").style.display="block";
-  alarmSound.currentTime = 0;
-  alarmSound.play().catch(()=>{});
-}
-
-function stopAlarm(){
-  isAlarmActive = false;
-  document.getElementById("alarmBox").style.display="none";
-  alarmSound.pause();
-  alarmSound.currentTime = 0;
-}
-
-/* ADD EVENT */
+/* ADD / EDIT */
 function addEvent(){
-  const name = document.getElementById("name").value;
-  const date = document.getElementById("date").value;
-  const time = document.getElementById("time").value;
+  const name = nameInput.value;
+  const date = dateInput.value;
+  const time = timeInput.value;
+  const alarm = parseInt(alarmSelect.value);
 
   const t = new Date(`${date}T${time}`).getTime();
-  const alarm = parseInt(document.getElementById("alarm").value);
-
   if(!name || !t) return;
 
-  events.push({
-    id:Date.now(),
-    name,
-    time:t,
-    alarm,
-    notified:false
-  });
+  if(editId){
+    const ev = events.find(e=>e.id===editId);
+    ev.name=name;
+    ev.time=t;
+    ev.alarm=alarm;
+    editId=null;
+  } else {
+    events.push({
+      id:Date.now(),
+      name,
+      time:t,
+      alarm,
+      notified:false
+    });
+  }
 
   save();
   render();
 }
 
-/* LOOP */
-setInterval(()=>{
-  const now = Date.now();
+/* EDIT */
+function editEvent(id){
+  const ev = events.find(e=>e.id===id);
+  editId=id;
 
-  events.forEach(ev=>{
-    const diff = ev.time - now;
+  nameInput.value=ev.name;
+  dateInput.value=new Date(ev.time).toISOString().slice(0,10);
+  timeInput.value=new Date(ev.time).toTimeString().slice(0,5);
+  alarmSelect.value=ev.alarm;
+}
 
-    if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
-      triggerAlarm(ev);
-      ev.notified = true;
-    }
-  });
-
-  /* 🔥 AUTO CLEAN */
-  const filtered = events.filter(e => e.time > now);
-
-  if(filtered.length !== events.length){
-    events = filtered;
-    save();
-    render(); // tylko gdy coś się zmieniło
-  }
-
-},2000);
-
-/* COUNTDOWN */
-setInterval(()=>{
-  const now = Date.now();
-
-  events.forEach(ev=>{
-    document.querySelectorAll(`[data-id="${ev.id}"]`)
-    .forEach(e=>{
-      e.innerText = formatDiff(ev.time-now);
-    });
-  });
-
-},1000);
-
-function formatDiff(ms){
-  if(ms<=0) return "TERAZ";
-  const s=Math.floor(ms/1000)%60;
-  const m=Math.floor(ms/60000)%60;
-  const h=Math.floor(ms/3600000)%24;
-  const d=Math.floor(ms/86400000);
-  return `${d}d ${h}h ${m}m ${s}s`;
+/* DELETE */
+function delEvent(id){
+  events = events.filter(e=>e.id!==id);
+  save();
+  render();
 }
 
 /* RENDER */
@@ -274,29 +251,33 @@ function render(){
 
   events.sort((a,b)=>a.time-b.time);
 
-  const next = document.getElementById("nextEvents");
-  next.innerHTML="";
+  const list = document.getElementById("eventList");
+  list.innerHTML="";
 
-  events.slice(0,8).forEach(ev=>{
-    next.innerHTML += `
-      <div class="next-event">
-        ${ev.name}<br>
-        ${new Date(ev.time).toLocaleString()}<br>
-        <div class="countdown" data-id="${ev.id}"></div>
+  events.forEach(ev=>{
+    list.innerHTML += `
+      <div class="event-card">
+        <div class="event-info">
+          <b>${ev.name}</b><br>
+          ${new Date(ev.time).toLocaleString()}
+        </div>
+
+        <div class="event-actions">
+          <div class="icon-btn" onclick="editEvent(${ev.id})">✏️</div>
+          <div class="icon-btn" onclick="delEvent(${ev.id})">🗑️</div>
+        </div>
       </div>
     `;
   });
 
-  const e = document.getElementById("events");
-  e.innerHTML="";
+  const next = document.getElementById("nextEvents");
+  next.innerHTML="";
 
-  events.forEach(ev=>{
-    e.innerHTML += `
-      <div class="event-row">
-        <div>${ev.name}</div>
-        <div>${new Date(ev.time).toLocaleDateString()}</div>
-        <div data-id="${ev.id}"></div>
-        <button onclick="delEvent(${ev.id})">X</button>
+  events.slice(0,3).forEach(ev=>{
+    next.innerHTML += `
+      <div class="next-event">
+        ${ev.name}<br>
+        ${new Date(ev.time).toLocaleString()}
       </div>
     `;
   });
@@ -304,34 +285,26 @@ function render(){
   renderTodos();
 }
 
-/* TODOS */
+/* TODO */
 function addTodo(){
-  const val = document.getElementById("todoInput").value;
+  const val = todoInput.value;
   if(!val) return;
-
   todos.push({text:val,done:false});
   saveTodos();
   renderTodos();
 }
 
 function renderTodos(){
-  const t=document.getElementById("todos");
+  const t = document.getElementById("todos");
   t.innerHTML="";
-
   todos.forEach((td,i)=>{
     t.innerHTML += `
       <div class="todo-row">
-        <input type="checkbox" ${td.done?"checked":""} onchange="toggleTodo(${i})">
         <div>${td.text}</div>
         <button onclick="delTodo(${i})">X</button>
       </div>
     `;
   });
-}
-
-function toggleTodo(i){
-  todos[i].done=!todos[i].done;
-  saveTodos();
 }
 
 function delTodo(i){
@@ -346,12 +319,6 @@ function save(){
 }
 function saveTodos(){
   localStorage.setItem("todos",JSON.stringify(todos));
-}
-
-function delEvent(id){
-  events = events.filter(e=>e.id!==id);
-  save();
-  render();
 }
 
 /* INIT */
