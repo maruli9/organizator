@@ -73,6 +73,7 @@ button{
   opacity:0.8;
 }
 
+/* ALARM */
 #alarmBox{
   display:none;
   position:fixed;
@@ -143,6 +144,7 @@ let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 let isAlarmActive = false;
 
+
 /* WEATHER */
 function weather(){
   const el = document.getElementById("weather");
@@ -160,10 +162,16 @@ function weather(){
 }
 
 /* AUDIO */
-const alarmSound = new Audio("./alarm.mp3");
-alarmSound.loop = true;
+const alarmSound = new Audio("./alarm2.mp3");
 
+
+alarmSound.loop = true;
 let audioUnlocked = false;
+
+window.addEventListener("load", ()=>{
+  alarmSound.pause();
+  alarmSound.currentTime = 0;
+});
 
 document.addEventListener("click", ()=>{
   if(audioUnlocked) return;
@@ -174,27 +182,21 @@ document.addEventListener("click", ()=>{
   }).catch(()=>{});
 },{once:true});
 
-/* 🔥 REAL NOTIFICATIONS SYSTEM */
-function enableNotifications(){
-  if(!("Notification" in window)){
-    alert("Brak supportu notifications");
-    return;
-  }
-
-  Notification.requestPermission().then(permission=>{
-    alert("Notification permission: " + permission);
-  });
-}
-
-/* SYSTEM NOTIFICATION */
-function sendNotification(ev){
-  if("Notification" in window && Notification.permission === "granted"){
-    new Notification("⏰ Event Alert", {
-      body: ev.name,
-      icon: ""
-    });
+function startAlarmSound(){
+  if(audioUnlocked && isAlarmActive){
+    alarmSound.currentTime = 0;
+    alarmSound.play().catch(()=>{});
   }
 }
+
+/* WATCHDOG FIX */
+setInterval(()=>{
+  if(isAlarmActive){
+    if(alarmSound.paused && audioUnlocked){
+      alarmSound.play().catch(()=>{});
+    }
+  }
+},2000);
 
 /* ALARM */
 function triggerAlarm(ev){
@@ -203,13 +205,7 @@ function triggerAlarm(ev){
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display="block";
 
-  if(audioUnlocked){
-    alarmSound.currentTime = 0;
-    alarmSound.play().catch(()=>{});
-  }
-
-  // 🔥 REAL NOTIFICATION HERE
-  sendNotification(ev);
+  startAlarmSound();
 }
 
 function stopAlarm(){
@@ -217,6 +213,16 @@ function stopAlarm(){
   document.getElementById("alarmBox").style.display="none";
   alarmSound.pause();
   alarmSound.currentTime = 0;
+}
+
+/* COUNTDOWN */
+function formatDiff(ms){
+  if(ms<=0) return "TERAZ";
+  const s=Math.floor(ms/1000)%60;
+  const m=Math.floor(ms/60000)%60;
+  const h=Math.floor(ms/3600000)%24;
+  const d=Math.floor(ms/86400000);
+  return `${d}d ${h}h ${m}m ${s}s`;
 }
 
 /* ADD EVENT */
@@ -229,12 +235,7 @@ function addEvent(){
 
   if(editId){
     const ev = events.find(e=>e.id===editId);
-    Object.assign(ev,{
-      name,
-      time:t,
-      alarm,
-      notified:false
-    });
+    Object.assign(ev,{name,time:t,alarm,notified:false});
     editId=null;
   } else {
     events.push({
@@ -250,51 +251,47 @@ function addEvent(){
   render();
 }
 
-/* MAIN LOOP */
+/* LOOP */
+setTimeout(()=>{
+
+  setInterval(()=>{
+    const now = Date.now();
+
+    events.forEach(ev=>{
+      const diff = ev.time - now;
+
+      if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
+        triggerAlarm(ev);
+        ev.notified = true;
+      }
+    });
+
+    events = events.filter(e=>e.time > now);
+
+  },2000);
+
+},1500);
+
+/* COUNTDOWN LOOP */
 setInterval(()=>{
   const now = Date.now();
 
   events.forEach(ev=>{
-    const diff = ev.time - now;
-
-    if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
-      triggerAlarm(ev);
-      ev.notified = true;
-    }
-  });
-
-  events = events.filter(e=>e.time > now);
-
-},2000);
-
-/* COUNTDOWN */
-setInterval(()=>{
-  const now = Date.now();
-
-  events.forEach(ev=>{
-    document.querySelectorAll(`[data-id="${ev.id}"]`).forEach(el=>{
-      el.innerText = formatDiff(ev.time - now);
+    const el = document.querySelectorAll(`[data-id="${ev.id}"]`);
+    el.forEach(e=>{
+      e.innerText = formatDiff(ev.time-now);
     });
   });
 
 },1000);
 
-function formatDiff(ms){
-  if(ms<=0) return "TERAZ";
-  const s=Math.floor(ms/1000)%60;
-  const m=Math.floor(ms/60000)%60;
-  const h=Math.floor(ms/3600000)%24;
-  const d=Math.floor(ms/86400000);
-  return `${d}d ${h}h ${m}m ${s}s`;
-}
-
 /* RENDER */
 function render(){
 
+  events.sort((a,b)=>a.time-b.time);
+
   const next = document.getElementById("nextEvents");
   next.innerHTML="";
-
-  events.sort((a,b)=>a.time-b.time);
 
   events.slice(0,3).forEach(ev=>{
     next.innerHTML += `
@@ -368,7 +365,7 @@ function saveTodos(){
   localStorage.setItem("todos",JSON.stringify(todos));
 }
 
-/* EDIT */
+/* EDIT/DELETE */
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
