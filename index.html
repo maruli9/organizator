@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub FINAL FIX</title>
+<title>Event Hub FIXED</title>
 
 <style>
 html, body {
@@ -13,67 +13,28 @@ html, body {
   color:white;
   font-family:system-ui;
 }
-
-.container{
-  max-width:720px;
-  margin:auto;
-  padding:16px;
-}
-
-.card{
-  background:rgba(255,255,255,0.06);
-  padding:14px;
-  margin:12px 0;
-  border-radius:14px;
-}
-
-input,select,button{
-  width:100%;
-  padding:10px;
-  margin-top:8px;
-  border-radius:10px;
-  border:none;
-}
-
-button{
-  background:#6c5ce7;
-  color:white;
-}
+.container{ max-width:720px; margin:auto; padding:16px; }
+.card{ background:rgba(255,255,255,0.06); padding:14px; margin:12px 0; border-radius:14px; }
+input,select,button{ width:100%; padding:10px; margin-top:8px; border-radius:10px; border:none; }
+button{ background:#6c5ce7; color:white; }
 
 .event-row{
   display:grid;
   grid-template-columns: 1.2fr 1fr 1fr 0.6fr 0.6fr;
-  gap:6px;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
-  border-radius:10px;
-  font-size:13px;
+  gap:6px; padding:8px; margin-top:6px;
+  background:rgba(255,255,255,0.05); border-radius:10px; font-size:13px;
 }
-
 .todo-row{
   display:grid;
   grid-template-columns: 40px 1fr 50px;
-  gap:6px;
-  padding:8px;
-  margin-top:6px;
-  background:rgba(255,255,255,0.05);
-  border-radius:10px;
+  gap:6px; padding:8px; margin-top:6px;
+  background:rgba(255,255,255,0.05); border-radius:10px;
 }
-
 .next-event{
-  background:#1e272e;
-  padding:10px;
-  border-radius:10px;
-  margin-top:6px;
+  background:#1e272e; padding:10px; border-radius:10px; margin-top:6px;
 }
+.countdown{ font-size:12px; opacity:0.8; }
 
-.countdown{
-  font-size:12px;
-  opacity:0.8;
-}
-
-/* ALARM */
 #alarmBox{
   display:none;
   position:fixed;
@@ -94,12 +55,8 @@ button{
 <h1>⏰ NEXT EVENTS</h1>
 <div id="nextEvents"></div>
 
+<button onclick="enableAudio()">🔔 Enable Sound</button>
 <button onclick="enableNotifications()">🔔 Enable Notifications</button>
-
-<div class="card">
-<h2>🌦 Weather</h2>
-<div id="weather">Loading...</div>
-</div>
 
 <div class="card">
 <h2>📅 Events</h2>
@@ -115,17 +72,7 @@ button{
 </select>
 
 <button onclick="addEvent()">Add event</button>
-
 <div id="events"></div>
-</div>
-
-<div class="card">
-<h2>📝 Todo</h2>
-
-<input id="todoInput" placeholder="Task">
-<button onclick="addTodo()">Add</button>
-
-<div id="todos"></div>
 </div>
 
 </div>
@@ -140,74 +87,64 @@ button{
 
 /* DATA */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
-let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 let isAlarmActive = false;
 
-
-/* WEATHER */
-function weather(){
-  const el = document.getElementById("weather");
-
-  Promise.all([
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=48.17&longitude=16.48&current_weather=true").then(r=>r.json()),
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=54.02&longitude=14.77&current_weather=true").then(r=>r.json())
-  ])
-  .then(([v,d])=>{
-    el.innerHTML =
-    `🌍 Vienna: ${v?.current_weather?.temperature ?? "?"}°C<br>
-     🇵🇱 Dziwnów: ${d?.current_weather?.temperature ?? "?"}°C`;
-  })
-  .catch(()=> el.innerText="Weather error");
-}
+/* FIX #1 — zabezpieczenie po reloadzie */
+events.forEach(e=>{
+  if(e.time < Date.now()){
+    e.notified = true;
+  }
+});
 
 /* AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
-
-
 alarmSound.loop = true;
 let audioUnlocked = false;
 
-window.addEventListener("load", ()=>{
-  alarmSound.pause();
-  alarmSound.currentTime = 0;
-});
-
-document.addEventListener("click", ()=>{
-  if(audioUnlocked) return;
+/* unlock audio */
+function enableAudio(){
   alarmSound.play().then(()=>{
     alarmSound.pause();
     alarmSound.currentTime = 0;
     audioUnlocked = true;
   }).catch(()=>{});
-},{once:true});
-
-function startAlarmSound(){
-  if(audioUnlocked && isAlarmActive){
-    alarmSound.currentTime = 0;
-    alarmSound.play().catch(()=>{});
-  }
 }
 
-/* WATCHDOG FIX */
-setInterval(()=>{
-  if(isAlarmActive){
-    if(alarmSound.paused && audioUnlocked){
-      alarmSound.play().catch(()=>{});
-    }
+/* NOTIFICATIONS */
+function enableNotifications(){
+  if(!("Notification" in window)){
+    alert("Ta przeglądarka nie wspiera powiadomień");
+    return;
   }
-},2000);
+
+  Notification.requestPermission();
+}
 
 /* ALARM */
 function triggerAlarm(ev){
+
+  if(isAlarmActive) return;
+
   isAlarmActive = true;
 
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display="block";
 
-  startAlarmSound();
+  if(audioUnlocked){
+    alarmSound.currentTime = 0;
+    alarmSound.play().catch(()=>{});
+  }
+
+  /* FIX #2 — notifications */
+  if(Notification.permission === "granted"){
+    new Notification("⏰ Event alarm", {
+      body: ev.name
+    });
+  }
 }
 
+/* STOP */
 function stopAlarm(){
   isAlarmActive = false;
   document.getElementById("alarmBox").style.display="none";
@@ -215,13 +152,44 @@ function stopAlarm(){
   alarmSound.currentTime = 0;
 }
 
+/* MAIN LOOP */
+setInterval(()=>{
+  const now = Date.now();
+
+  events.forEach(ev=>{
+    const diff = ev.time - now;
+
+    if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
+      triggerAlarm(ev);
+      ev.notified = true;
+      save();
+    }
+  });
+
+  events = events.filter(e=>e.time > now);
+  save();
+
+},2000);
+
 /* COUNTDOWN */
+setInterval(()=>{
+  const now = Date.now();
+
+  events.forEach(ev=>{
+    document.querySelectorAll(`[data-id="${ev.id}"]`)
+      .forEach(el=>{
+        el.innerText = formatDiff(ev.time - now);
+      });
+  });
+
+},1000);
+
 function formatDiff(ms){
-  if(ms<=0) return "TERAZ";
-  const s=Math.floor(ms/1000)%60;
-  const m=Math.floor(ms/60000)%60;
-  const h=Math.floor(ms/3600000)%24;
-  const d=Math.floor(ms/86400000);
+  if(ms <= 0) return "TERAZ";
+  const s = Math.floor(ms/1000)%60;
+  const m = Math.floor(ms/60000)%60;
+  const h = Math.floor(ms/3600000)%24;
+  const d = Math.floor(ms/86400000);
   return `${d}d ${h}h ${m}m ${s}s`;
 }
 
@@ -235,7 +203,12 @@ function addEvent(){
 
   if(editId){
     const ev = events.find(e=>e.id===editId);
-    Object.assign(ev,{name,time:t,alarm,notified:false});
+    Object.assign(ev,{
+      name,
+      time:t,
+      alarm,
+      notified:false
+    });
     editId=null;
   } else {
     events.push({
@@ -250,40 +223,6 @@ function addEvent(){
   save();
   render();
 }
-
-/* LOOP */
-setTimeout(()=>{
-
-  setInterval(()=>{
-    const now = Date.now();
-
-    events.forEach(ev=>{
-      const diff = ev.time - now;
-
-      if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
-        triggerAlarm(ev);
-        ev.notified = true;
-      }
-    });
-
-    events = events.filter(e=>e.time > now);
-
-  },2000);
-
-},1500);
-
-/* COUNTDOWN LOOP */
-setInterval(()=>{
-  const now = Date.now();
-
-  events.forEach(ev=>{
-    const el = document.querySelectorAll(`[data-id="${ev.id}"]`);
-    el.forEach(e=>{
-      e.innerText = formatDiff(ev.time-now);
-    });
-  });
-
-},1000);
 
 /* RENDER */
 function render(){
@@ -317,66 +256,26 @@ function render(){
       </div>
     `;
   });
-
-  renderTodos();
-}
-
-/* TODOS */
-function addTodo(){
-  const val = document.getElementById("todoInput").value;
-  if(!val) return;
-
-  todos.push({text:val,done:false});
-  saveTodos();
-  renderTodos();
-}
-
-function renderTodos(){
-  const t=document.getElementById("todos");
-  t.innerHTML="";
-
-  todos.forEach((td,i)=>{
-    t.innerHTML += `
-      <div class="todo-row">
-        <input type="checkbox" ${td.done?"checked":""} onchange="toggleTodo(${i})">
-        <div>${td.text}</div>
-        <button onclick="delTodo(${i})">X</button>
-      </div>
-    `;
-  });
-}
-
-function toggleTodo(i){
-  todos[i].done=!todos[i].done;
-  saveTodos();
-}
-
-function delTodo(i){
-  todos.splice(i,1);
-  saveTodos();
-  renderTodos();
 }
 
 /* SAVE */
 function save(){
-  localStorage.setItem("events",JSON.stringify(events));
-}
-function saveTodos(){
-  localStorage.setItem("todos",JSON.stringify(todos));
+  localStorage.setItem("events", JSON.stringify(events));
 }
 
-/* EDIT/DELETE */
+/* EDIT */
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
-  name.value=ev.name;
-  date.value=new Date(ev.time).toISOString().split("T")[0];
-  time.value=new Date(ev.time).toTimeString().slice(0,5);
-  alarm.value=ev.alarm;
+  name.value = ev.name;
+  date.value = new Date(ev.time).toISOString().split("T")[0];
+  time.value = new Date(ev.time).toTimeString().slice(0,5);
+  alarm.value = ev.alarm;
 
-  editId=id;
+  editId = id;
 }
 
+/* DELETE */
 function delEvent(id){
   events = events.filter(e=>e.id!==id);
   save();
@@ -385,7 +284,6 @@ function delEvent(id){
 
 /* INIT */
 render();
-weather();
 
 </script>
 
