@@ -266,13 +266,16 @@ setTimeout(()=>{
       }
     });
 
-    events = events.filter(e=>e.time > now);
-    save();
+    const filtered = events.filter(e => e.time > now);
+
+    if (filtered.length !== events.length) {
+      events = filtered;
+      save();
+    }
 
   },2000);
 
 },1500);
-
 /* COUNTDOWN LOOP */
 setInterval(()=>{
   const now = Date.now();
