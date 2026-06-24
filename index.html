@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Event Hub FINAL FIX</title>
+<title>Event Hub FIXED</title>
 
 <style>
 html, body {
@@ -94,8 +94,6 @@ button{
 <h1>⏰ NEXT EVENTS</h1>
 <div id="nextEvents"></div>
 
-<button onclick="enableNotifications()">🔔 Enable Notifications</button>
-
 <div class="card">
 <h2>🌦 Weather</h2>
 <div id="weather">Loading...</div>
@@ -138,12 +136,13 @@ button{
 
 <script>
 
-/* DATA */
 let events = JSON.parse(localStorage.getItem("events") || "[]");
 let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 let isAlarmActive = false;
 
+/* 🔥 FIX: brak fałszywego alarmu po starcie */
+const bootTime = Date.now();
 
 /* WEATHER */
 function weather(){
@@ -163,40 +162,19 @@ function weather(){
 
 /* AUDIO */
 const alarmSound = new Audio("./alarm2.mp3");
-
-
 alarmSound.loop = true;
-let audioUnlocked = false;
 
-window.addEventListener("load", ()=>{
-  alarmSound.pause();
-  alarmSound.currentTime = 0;
-});
+let audioUnlocked = false;
 
 document.addEventListener("click", ()=>{
   if(audioUnlocked) return;
+
   alarmSound.play().then(()=>{
     alarmSound.pause();
     alarmSound.currentTime = 0;
     audioUnlocked = true;
   }).catch(()=>{});
 },{once:true});
-
-function startAlarmSound(){
-  if(audioUnlocked && isAlarmActive){
-    alarmSound.currentTime = 0;
-    alarmSound.play().catch(()=>{});
-  }
-}
-
-/* WATCHDOG FIX */
-setInterval(()=>{
-  if(isAlarmActive){
-    if(alarmSound.paused && audioUnlocked){
-      alarmSound.play().catch(()=>{});
-    }
-  }
-},2000);
 
 /* ALARM */
 function triggerAlarm(ev){
@@ -205,7 +183,8 @@ function triggerAlarm(ev){
   document.getElementById("alarmText").innerText = ev.name;
   document.getElementById("alarmBox").style.display="block";
 
-  startAlarmSound();
+  alarmSound.currentTime = 0;
+  alarmSound.play().catch(()=>{});
 }
 
 function stopAlarm(){
@@ -228,7 +207,10 @@ function formatDiff(ms){
 /* ADD EVENT */
 function addEvent(){
   const name = document.getElementById("name").value;
-  const t = new Date(`${date.value}T${time.value}`).getTime();
+  const date = document.getElementById("date").value;
+  const time = document.getElementById("time").value;
+
+  const t = new Date(`${date}T${time}`).getTime();
   const alarm = parseInt(document.getElementById("alarm").value);
 
   if(!name || !t) return;
@@ -251,34 +233,36 @@ function addEvent(){
   render();
 }
 
-/* LOOP */
-setTimeout(()=>{
-
-  setInterval(()=>{
-    const now = Date.now();
-
-    events.forEach(ev=>{
-      const diff = ev.time - now;
-
-      if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
-        triggerAlarm(ev);
-        ev.notified = true;
-      }
-    });
-
-    events = events.filter(e=>e.time > now);
-
-  },2000);
-
-},1500);
-
-/* COUNTDOWN LOOP */
+/* LOOP ALARM CHECK */
 setInterval(()=>{
   const now = Date.now();
 
   events.forEach(ev=>{
-    const el = document.querySelectorAll(`[data-id="${ev.id}"]`);
-    el.forEach(e=>{
+    const diff = ev.time - now;
+
+    /* 🔥 FIX: blokada po starcie + brak ponownego triggera */
+    if(
+      !ev.notified &&
+      diff <= ev.alarm * 60000 &&
+      diff > 0 &&
+      now - bootTime > 5000
+    ){
+      triggerAlarm(ev);
+      ev.notified = true;
+    }
+  });
+
+  events = events.filter(e=>e.time > now);
+
+},2000);
+
+/* COUNTDOWN UPDATE */
+setInterval(()=>{
+  const now = Date.now();
+
+  events.forEach(ev=>{
+    const els = document.querySelectorAll(`[data-id="${ev.id}"]`);
+    els.forEach(e=>{
       e.innerText = formatDiff(ev.time-now);
     });
   });
@@ -290,10 +274,11 @@ function render(){
 
   events.sort((a,b)=>a.time-b.time);
 
+  /* 🔥 FIX: 6 next events */
   const next = document.getElementById("nextEvents");
   next.innerHTML="";
 
-  events.slice(0,3).forEach(ev=>{
+  events.slice(0,6).forEach(ev=>{
     next.innerHTML += `
       <div class="next-event">
         ${ev.name}<br>
@@ -365,14 +350,14 @@ function saveTodos(){
   localStorage.setItem("todos",JSON.stringify(todos));
 }
 
-/* EDIT/DELETE */
+/* EDIT */
 function editEvent(id){
   const ev = events.find(e=>e.id===id);
 
-  name.value=ev.name;
-  date.value=new Date(ev.time).toISOString().split("T")[0];
-  time.value=new Date(ev.time).toTimeString().slice(0,5);
-  alarm.value=ev.alarm;
+  document.getElementById("name").value=ev.name;
+  document.getElementById("date").value=new Date(ev.time).toISOString().split("T")[0];
+  document.getElementById("time").value=new Date(ev.time).toTimeString().slice(0,5);
+  document.getElementById("alarm").value=ev.alarm;
 
   editId=id;
 }
