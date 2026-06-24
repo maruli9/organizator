@@ -73,7 +73,6 @@ button{
   opacity:0.8;
 }
 
-/* ALARM */
 #alarmBox{
   display:none;
   position:fixed;
@@ -144,9 +143,6 @@ let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 let isAlarmActive = false;
 
-/* FIX */
-let systemArmed = false;
-
 /* WEATHER */
 function weather(){
   const el = document.getElementById("weather");
@@ -178,6 +174,28 @@ document.addEventListener("click", ()=>{
   }).catch(()=>{});
 },{once:true});
 
+/* 🔥 REAL NOTIFICATIONS SYSTEM */
+function enableNotifications(){
+  if(!("Notification" in window)){
+    alert("Brak supportu notifications");
+    return;
+  }
+
+  Notification.requestPermission().then(permission=>{
+    alert("Notification permission: " + permission);
+  });
+}
+
+/* SYSTEM NOTIFICATION */
+function sendNotification(ev){
+  if("Notification" in window && Notification.permission === "granted"){
+    new Notification("⏰ Event Alert", {
+      body: ev.name,
+      icon: ""
+    });
+  }
+}
+
 /* ALARM */
 function triggerAlarm(ev){
   isAlarmActive = true;
@@ -189,6 +207,9 @@ function triggerAlarm(ev){
     alarmSound.currentTime = 0;
     alarmSound.play().catch(()=>{});
   }
+
+  // 🔥 REAL NOTIFICATION HERE
+  sendNotification(ev);
 }
 
 function stopAlarm(){
@@ -196,17 +217,6 @@ function stopAlarm(){
   document.getElementById("alarmBox").style.display="none";
   alarmSound.pause();
   alarmSound.currentTime = 0;
-}
-
-/* ENABLE BUTTON */
-function enableNotifications(){
-  systemArmed = true;
-
-  if("Notification" in window){
-    Notification.requestPermission();
-  }
-
-  alert("Notifications enabled");
 }
 
 /* ADD EVENT */
@@ -223,8 +233,7 @@ function addEvent(){
       name,
       time:t,
       alarm,
-      notified:false,
-      armed:false
+      notified:false
     });
     editId=null;
   } else {
@@ -233,8 +242,7 @@ function addEvent(){
       name,
       time:t,
       alarm,
-      notified:false,
-      armed:false
+      notified:false
     });
   }
 
@@ -249,11 +257,7 @@ setInterval(()=>{
   events.forEach(ev=>{
     const diff = ev.time - now;
 
-    if(systemArmed && !ev.armed){
-      ev.armed = true;
-    }
-
-    if(ev.armed && !ev.notified && diff <= ev.alarm*60000 && diff > 0){
+    if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
       triggerAlarm(ev);
       ev.notified = true;
     }
