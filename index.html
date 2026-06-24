@@ -144,6 +144,8 @@ let todos = JSON.parse(localStorage.getItem("todos") || "[]");
 let editId = null;
 let isAlarmActive = false;
 
+/* 🔥 FIX: system lock */
+let systemArmed = false;
 
 /* WEATHER */
 function weather(){
@@ -163,8 +165,6 @@ function weather(){
 
 /* AUDIO */
 const alarmSound = new Audio("./alarm.mp3");
-
-
 alarmSound.loop = true;
 let audioUnlocked = false;
 
@@ -260,7 +260,8 @@ setTimeout(()=>{
     events.forEach(ev=>{
       const diff = ev.time - now;
 
-      if(!ev.notified && diff <= ev.alarm*60000 && diff > 0){
+      /* 🔥 FIX: system must be armed */
+      if(systemArmed && !ev.notified && diff <= ev.alarm*60000 && diff > 0){
         triggerAlarm(ev);
         ev.notified = true;
       }
@@ -381,6 +382,17 @@ function delEvent(id){
   events = events.filter(e=>e.id!==id);
   save();
   render();
+}
+
+/* 🔥 FIXED NOTIFICATIONS BUTTON */
+function enableNotifications() {
+  systemArmed = true;
+
+  if ("Notification" in window) {
+    Notification.requestPermission();
+  }
+
+  alert("Notifications enabled");
 }
 
 /* INIT */
